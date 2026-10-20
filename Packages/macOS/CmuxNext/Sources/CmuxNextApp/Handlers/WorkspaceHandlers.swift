@@ -16,7 +16,7 @@ enum WorkspaceHandlers {
         WorkspaceSetVerbs.bind(into: registry, context: context)
 
         registry.bindUnavailable(["palette.openFolderInVSCodeInline"], ActionFailure.needsAppCapability("vscode-inline"))
-        registry.bindUnavailable(["palette.openWorkspacePullRequests"], ActionFailure.needsAppCapability("github-integration"))
+        registry.bind("palette.openWorkspacePullRequests", run: { invocation in try openPullRequestLinks(context, invocation) })
         registry.bindUnavailable(["palette.findWork"], ActionFailure.needsAppCapability("github-integration"))
         registry.bindUnavailable(["reopenPreviousSession"], ActionFailure.needsDaemonCapability("closed-history-v1"))
         registry.bind("reopenClosedWorkspace", invoke: { _ in
@@ -30,6 +30,18 @@ enum WorkspaceHandlers {
         for id: ActionID in ["reconnectWorkspace", "disconnectWorkspace", "copyWorkspaceSSHError"] {
             registry.bindUnavailable([id], ActionFailure.needsDaemonCapability("remote-workspaces-v1"))
         }
+    }
+
+    /// Open All Workspace PR Links: each web link of the workspace's status
+    /// entries as a browser tab in the focused pane of a window showing it,
+    /// the first selected.
+    private static func openPullRequestLinks(_ context: AppActionContext, _ invocation: ActionInvocation) throws {
+        let (workspace, _) = try context.workspace(invocation)
+        let links = WorkspacePullRequestLinks(workspace.status?.entries ?? []).urls
+        guard !links.isEmpty else { throw ActionFailure(message: RefusalStrings.noWorkspacePullRequestLinks) }
+        let shown = context.services.windows.controllers.compactMap(\.content).first { $0.workspace.id == workspace.id }
+        guard let pane = shown?.focusedPane else { throw ActionFailure(message: RefusalStrings.noWindowShowsWorkspace) }
+        for (index, url) in links.enumerated() { pane.newBrowserTab(url: url, background: index > 0) }
     }
 
     // MARK: Creation
