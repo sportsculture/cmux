@@ -66,7 +66,8 @@ extension ProjectionCore {
     /// while it streams never cuts it (the bubble stays one, below the send, in the owner's order).
     private static func visibleText(_ draft: HomeTurnDraft) -> String? {
         let text = draft.text
-        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+        // The first non-whitespace character ends the scan (trimming copied the whole reply every token).
+        return text.unicodeScalars.contains { !CharacterSet.whitespacesAndNewlines.contains($0) } ? text : nil
     }
 
     static func streamID(_ turn: IdempotencyKey) -> StreamID { turn.rawValue }
@@ -81,6 +82,16 @@ extension ProjectionCore {
     private func bubble(_ draft: HomeTurnDraft, text: String) -> Message {
         let item = TranscriptItem(key: draft.turn, seq: nil, author: draft.participant, parts: [.text(text)],
                                   createdAt: Date(), delivery: .committed)
-        return HomeMapping.message(item, aliases: aliases, me: me, summary: summary, media: media, links: links)
+        guard HomeMapping.isAgent(draft.participant, summary) else {
+            return HomeMapping.message(item, aliases: aliases, me: me, summary: summary, media: media, links: links)
+        }
+        // An agent's reply: the same parts as HomeMapping.parts(markdown: true), at the token's cost
+        // (HomeStreamMapper keeps the rendered lines between tokens).
+        var bare = item
+        bare.parts = []
+        var message = HomeMapping.message(bare, aliases: aliases, me: me, summary: summary, media: media, links: links)
+        message.parts = streamMapper.parts(text, links: links)
+        message.format = .markdown
+        return message
     }
 }

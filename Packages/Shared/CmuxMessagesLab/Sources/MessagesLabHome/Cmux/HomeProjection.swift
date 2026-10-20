@@ -690,6 +690,8 @@ struct ProjectionCore {
     var links: HomeMapping.Links = { _ in nil }
     /// The agent's running reply on screen (`stream(_:state:)`, MessagesLab ask 11).
     var shownStream: ShownStream?
+    /// The running reply's parts between tokens (a cache: copies of the core may share it).
+    let streamMapper = HomeStreamMapper()
 
     init(me: ParticipantID) { self.me = me }
 
