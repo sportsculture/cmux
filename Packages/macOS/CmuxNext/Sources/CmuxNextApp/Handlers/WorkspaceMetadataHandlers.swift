@@ -9,8 +9,8 @@ import CmuxNextCompat
 /// Colors go through the sidebar bridge (optimistic row update, then
 /// `set-workspace-metadata`), the same path as the row's context menu.
 /// Pin goes through the one pin path (`PinCommands`).
-/// Fields the daemon tree does not have (description, status, checklist)
-/// report the missing daemon capability.
+/// Fields the daemon tree does not have (description, status) report the
+/// missing daemon capability. The checklist is `WorkspaceChecklistHandlers`.
 enum WorkspaceMetadataHandlers {
     static func bind(into registry: ActionRegistry, context: AppActionContext) {
         registry.bind("palette.clearWorkspaceName", requires: DaemonCapabilities.shared.workspaceMetadata, daemon: context.services.activeDaemon, run: { invocation in
@@ -74,9 +74,6 @@ enum WorkspaceMetadataHandlers {
             ("markWorkspaceDone", "workspace-status-v1"),
             ("cycleWorkspaceStatus", "workspace-status-v1"),
             ("palette.workspaceStatus", "workspace-status-v1"),
-            ("palette.addWorkspaceChecklistItem", "workspace-checklist-v1"),
-            ("toggleChecklistItemComplete", "workspace-checklist-v1"),
-            ("palette.openWorkspaceTodoPane", "workspace-checklist-v1"),
         ]
         for (id, capability) in missing {
             registry.bindUnavailable([id], ActionFailure.needsDaemonCapability(capability))
