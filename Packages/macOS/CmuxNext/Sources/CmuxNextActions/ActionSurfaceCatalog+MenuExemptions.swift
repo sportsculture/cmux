@@ -22,7 +22,6 @@ nonisolated extension ActionSurfaceCatalog {
             "palette.browserToggleOmnibar",
             "toggleReactGrab",
             "palette.openCloudPane",
-            "palette.openVaultPane",
             "palette.openFindPane",
             "palette.openFilesPane",
         ],
@@ -65,6 +64,7 @@ nonisolated extension ActionSurfaceCatalog {
             "music.open", "music.stop",
             "browserShowHistory", "history.search", "history.resumeAgentSession", "history.reopen", "history.open", "history.clear",
             "layout.undo", "bookmark.add", "bookmark.import", "bookmark.importFromBrowser", "bookmark.export", "agentActivity.open",
+            "palette.openVaultPane",
         ],
         .noTargetSurface: [
             "browserProfile.openLink", "file.open",
