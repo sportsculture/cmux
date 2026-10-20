@@ -53,9 +53,6 @@ enum PermissionsControl {
 
     private static func parse(_ call: ControlCall) throws -> PermissionRequest {
         let params = call.request.params
-        if notImplemented {
-            return PermissionRequest(kind: PermissionKind(rawValue: params["kind"]?.stringValue ?? "") ?? .camera, reason: "", requester: requester(call))
-        }
         guard let name = params["kind"]?.stringValue else { throw ControlError.invalidParams("kind is required", data: ["param": "kind"]) }
         guard let kind = PermissionKind(rawValue: name) else { throw unknownKind(name) }
         let reason = params["reason"]?.stringValue ?? ""
@@ -73,7 +70,6 @@ enum PermissionsControl {
     }
 
     private static func timeoutSeconds(_ params: [String: JSONValue]) throws -> Int {
-        if notImplemented { return defaultTimeout }
         guard let value = params["timeout_seconds"], !value.isNull else { return defaultTimeout }
         guard let seconds = value.intValue, (1...maximumTimeout).contains(seconds) else {
             throw ControlError.invalidParams("timeout_seconds must be 1...\(maximumTimeout)", data: ["param": "timeout_seconds"])
@@ -119,6 +115,3 @@ enum PermissionsControl {
          "error_code": .optional(outcome.result.errorCode)]
     }
 }
-
-/// Red commit: the behavior lands in the next commit.
-private nonisolated var notImplemented: Bool { true }
