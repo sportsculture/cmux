@@ -128,6 +128,11 @@ export const PAGES = {
         file: `${sources}/CmuxNextActions/ActionCatalog.xcstrings`,
         keys: () => ["action.reloadConfiguration"],
       },
+      {
+        // Machines > Add Server… (u3849): the palette action's own title.
+        file: `${sources}/CmuxNextActions/ServerActions.xcstrings`,
+        keys: () => ["action.server.addServer"],
+      },
     ],
   },
   history: {
