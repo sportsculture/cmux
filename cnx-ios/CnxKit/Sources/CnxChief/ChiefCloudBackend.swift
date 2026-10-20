@@ -468,14 +468,9 @@ public final class ChiefCloudBackend: ConversationBackend, ChiefLiveSource, @unc
         }
 
         /// One protocol ping through `sendPing`; true when the pong came back.
-        /// URLSession can call the pong handler more than once while the
-        /// socket tears down, so only the first call resumes.
         static func ping(using sendPing: (@escaping @Sendable ((any Error)?) -> Void) -> Void) async -> Bool {
-            let once = PongOnce()
-            return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-                sendPing { error in
-                    if once.claim() { continuation.resume(returning: error == nil) }
-                }
+            await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                sendPing { error in continuation.resume(returning: error == nil) }
             }
         }
 
