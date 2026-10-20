@@ -93,7 +93,7 @@ final class SidebarListView: NSView {
     /// Main-thread milliseconds of the last drag move (`SidebarMotionFrame.dragWorkMs`).
     var lastDragWorkMs: Double = 0
     var external: ExternalDrag?
-    /// The active row the last reload laid out (close-focus.md: reveal on change).
+    /// The selection the last reload or selection patch revealed (`selectionRevealKey`; close-focus.md: reveal on change).
     var revealedActive: SidebarRowKey?
     /// The row that stands for the selection (`SidebarLayout.selectedRowKey`).
     internal(set) var selectedRowKey: SidebarRowKey?
