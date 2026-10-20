@@ -76,15 +76,7 @@ extension TabHandlers {
             if let reason = TabPromotion.refusal(tab: tab.id, services: ctx.services) {
                 return ctx.registry.refuse(reason)
             }
-            let windows = ctx.services.windows
-            let origin = windows.moveOrigin(of: ctx.services.workspaceID(ofTab: tab.id))
-            // Read before the await: a run this client's user did not start
-            // opens the window behind, never key.
-            let allowed = ActionRunScope.viewChangeAllowed()
-            Task {
-                guard let key = await TabMoves.toNewWorkspace(tab, services: ctx.services) else { return }
-                windows.placeMoved(key.rawValue, from: origin, preferred: nil, newWindow: true, select: allowed)
-            }
+            WorkspaceStructureHandlers.tabsToNewWindow([tab], ctx)
         })
     }
 

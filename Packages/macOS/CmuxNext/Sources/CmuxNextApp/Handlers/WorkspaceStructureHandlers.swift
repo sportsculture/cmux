@@ -7,7 +7,7 @@ import CmuxNextSidebar
 
 /// Workspace verbs that change what a workspace holds: duplicate (layout and
 /// directories, new terminals), merge into another workspace, move a pane
-/// out into a new workspace, icon, copy path (REWRITE.md round 3).
+/// out into a new workspace or window, icon, copy path (REWRITE.md round 3).
 enum WorkspaceStructureHandlers {
     static func bind(into registry: ActionRegistry, context: AppActionContext) {
         registry.bind("workspace.duplicate", run: { try duplicate(context, $0, browsers: true) })
@@ -47,6 +47,14 @@ enum WorkspaceStructureHandlers {
         registry.bind("workspace.clearIcon", run: { try changeIcon(to: nil, $0, context) })
         registry.bind("workspace.mergeInto", run: { try merge(context, $0) })
         registry.bind("pane.moveToNewWorkspace", run: { try movePane(context, $0) })
+        registry.bind("pane.moveToNewWindow", run: { invocation in
+            guard let pane = context.daemonPane(invocation), let first = pane.tabs.first else {
+                throw ActionFailure.invalidTarget(RefusalStrings.noWorkspaceToActOn)
+            }
+            // Home keeps its tabs, whichever way they would leave (TabPromotion).
+            if let reason = TabPromotion.refusal(tab: first.id, services: context.services) { throw ActionFailure.invalidTarget(reason) }
+            tabsToNewWindow(pane.tabs, context)
+        })
     }
 
     // MARK: Duplicate
@@ -179,6 +187,31 @@ enum WorkspaceStructureHandlers {
                 if let created = services.workspace(id: id) { moveTabs(rest, into: created, context) {} }
                 // A run this client's user did not start files it away.
                 if allowed { services.windows.show(workspaceID: id, in: state) }
+            }
+            return nil
+        })
+    }
+
+    /// Move to New Window for tabs (one tab, a selection, a pane's): the first becomes a new
+    /// workspace in a new window beside theirs (`WindowManager.openMovedWindow`) and the rest
+    /// follow in order. The daemon moves each tab, so its terminal keeps running and its page
+    /// entry is reparented, never reloaded. Tabs that are all of their workspace move it whole.
+    static func tabsToNewWindow(_ tabs: [TabModel], _ context: AppActionContext) {
+        let services = context.services, windows = services.windows
+        guard let first = tabs.first, let workspace = services.workspaceID(ofTab: first.id) else { return }
+        let origin = windows.moveOrigin(of: workspace)
+        // Read before the await: a run this client's user did not start opens the window behind.
+        let allowed = ActionRunScope.viewChangeAllowed()
+        let all = services.workspace(id: workspace)?.screens.flatMap(\.panes).flatMap(\.tabs).map(\.id) ?? []
+        if Set(all) == Set(tabs.map(\.id)) {
+            windows.openMovedWindow([workspace], from: origin, select: allowed)
+            return
+        }
+        services.registry.track(Task {
+            guard let key = await TabMoves.toNewWorkspace(first, services: services) else { return "move-tab-to-new-window failed (see the app log)" }
+            guard let opened = windows.openMovedWindow([key.rawValue], from: origin, select: allowed), tabs.count > 1 else { return nil }
+            windows.place(newWorkspace: key.rawValue, in: opened.state.id, at: nil) { id, _ in
+                if let created = services.workspace(id: id) { moveTabs(Array(tabs.dropFirst()), into: created, context) {} }
             }
             return nil
         })
