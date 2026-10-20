@@ -104,3 +104,73 @@ fn only_host_start_failures_are_transient() {
         "session/new: env key X is not one a session may set"
     ));
 }
+
+/// acp-chief-issues.md #3: "session/new: agent process closed" (a96, a198,
+/// 22 compactor and subagent starts on 2026-10-19) is sr2 or Claude Code
+/// exiting while it starts, mostly while the sr2 gateway is slow (its stderr:
+/// "read rotation: ... context deadline exceeded", "connection refused").
+/// The same spawn a moment later starts. It is tried again, with a pause,
+/// up to three tries in all.
+#[test]
+fn a_harness_that_dies_while_it_starts_is_started_again() {
+    let mut h = Harness::new(default_script());
+    {
+        let mut inner = h.agents.inner.lock().unwrap();
+        inner
+            .session_errors_once
+            .push_back("session/new: agent process closed".into());
+        inner.session_errors_once.push_back(
+            "session/new: agent process closed (claude-sr2): claude2: read rotation: context deadline exceeded".into(),
+        );
+    }
+    let answer = spawn_one(&mut h).expect("the spawn answers");
+    assert!(answer.contains("Started a1"), "{answer}");
+    assert_eq!(subagent_sessions(&h), 1);
+}
+
+#[test]
+fn a_harness_that_dies_three_times_is_reported() {
+    let mut h = Harness::new(default_script());
+    {
+        let mut inner = h.agents.inner.lock().unwrap();
+        for _ in 0..3 {
+            inner
+                .session_errors_once
+                .push_back("session/new: agent process closed".into());
+        }
+    }
+    let answer = spawn_one(&mut h).expect("the spawn answers");
+    assert!(answer.contains("a1: did not start"), "{answer}");
+    assert_eq!(subagent_sessions(&h), 0);
+}
+
+#[test]
+fn a_harness_that_closes_for_want_of_a_login_is_not_retried() {
+    assert!(is_transient_start_failure(
+        "session/new: agent process closed"
+    ));
+    assert!(!is_transient_start_failure(
+        "session/new: agent process closed (claude): Not logged in · Please run /login"
+    ));
+    assert!(!is_transient_start_failure(
+        "session/new: agent process closed (codex): unknown option --foo"
+    ));
+}
+
+/// The Chief's own turn fails the same way (turn 2178, "session/new: agent
+/// process closed"): it runs again after a pause, twice at most.
+#[test]
+fn a_turn_whose_harness_dies_while_it_starts_runs_again() {
+    use optchat_chief::turn::transient_retry_after;
+    let e = "session/new: agent process closed";
+    assert!(transient_retry_after(e, 0).is_some());
+    assert!(transient_retry_after(e, 1).is_some());
+    assert!(transient_retry_after(e, 2).is_none());
+    assert!(
+        transient_retry_after(
+            "session/new: agent process closed (claude): Not logged in · Please run /login",
+            0
+        )
+        .is_none()
+    );
+}
