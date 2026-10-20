@@ -505,6 +505,12 @@ pub struct Brain {
     sub_starter: Option<Sender<crate::subagents::QueuedStart>>,
     /// Most subagents at work at once (`subagents::live_limit`); None: no cap.
     max_live: Option<usize>,
+    /// The wall clock (ms since the epoch) the subagent watch reads; tests
+    /// set their own (`set_clock`).
+    clock: Arc<dyn Fn() -> u64 + Send + Sync>,
+    /// Each running subagent's folded events (sub_watch.rs), by id: kept
+    /// between ticks so each tick reads only the new events.
+    watches: HashMap<String, crate::sub_watch::Watch>,
     /// A finished subagent's workspace closes instead of taking the done
     /// mark (`OPTCHAT_SUBAGENT_ON_FINISH=close`).
     sub_close_on_finish: bool,
@@ -633,6 +639,8 @@ impl Brain {
             workspaces: None,
             sub_starter: None,
             max_live: None,
+            clock: Arc::new(now_ms),
+            watches: HashMap::new(),
             sub_close_on_finish: false,
             resume_policy: Some(crate::auto_resume::ResumePolicy::default()),
             reach: Arc::new(crate::auto_resume::TcpProbe::from_env(
@@ -737,6 +745,11 @@ impl Brain {
             control::start_ticker(self.tx.clone());
         }
         self.sub_starter = starter;
+    }
+
+    /// The clock the subagent watch reads (ms since the epoch).
+    pub fn set_clock(&mut self, clock: Arc<dyn Fn() -> u64 + Send + Sync>) {
+        self.clock = clock;
     }
 
     /// Caps the subagents at work at once (None: no cap, the default).

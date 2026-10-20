@@ -543,6 +543,8 @@ pub struct Agents {
     pub answered_turns: usize,
     /// Each prompt's session id, in prompt order.
     pub prompt_sessions: Vec<String>,
+    /// A session's status as `session` reports it (default `running`).
+    pub session_status: BTreeMap<String, String>,
     /// Each session's `.claude/settings.json` in its cwd when it started
     /// (None: no file), in `specs` order.
     pub session_settings: Vec<Option<String>>,
@@ -820,8 +822,13 @@ impl AgentPort for FakeAgents {
             .session_harness
             .clone()
             .unwrap_or_else(|| spec.harness.clone());
+        let status = inner
+            .session_status
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| "running".into());
         Ok(Some(serde_json::from_value(json!({
-            "sessionId": id, "name": spec.name, "harness": harness, "cwd": spec.cwd, "status": "running",
+            "sessionId": id, "name": spec.name, "harness": harness, "cwd": spec.cwd, "status": status,
         })).unwrap()))
     }
 
