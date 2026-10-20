@@ -442,6 +442,7 @@ final class TabCell {
             removeCloseLayers()
         }
         closeButtonRect = closeRect
+        updateCloseAccessibility(closeRect)
 
         if visibility.showsTitle {
             // The title always spans to the trailing inset, so it never moves

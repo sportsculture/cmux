@@ -25,6 +25,7 @@ final class SidebarTabRowView: SidebarRowView {
     required init(key: SidebarRowKey) {
         super.init(key: key)
         [icon, title, unreadDot].forEach(addSubview)
+        icon.setAccessibilityElement(false) // the row's label names the tab
         unreadDot.fixedLook = .quiet
     }
 
