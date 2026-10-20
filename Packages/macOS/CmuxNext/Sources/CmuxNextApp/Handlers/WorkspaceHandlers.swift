@@ -16,7 +16,7 @@ enum WorkspaceHandlers {
         WorkspaceBulkClose.bind(into: registry, context: context)
         WorkspaceSetVerbs.bind(into: registry, context: context)
 
-        registry.bindUnavailable(["palette.openFolderInVSCodeInline"], ActionFailure.needsAppCapability("vscode-inline"))
+        VSCodeInlineHandlers.bind(into: registry, context: context)
         registry.bind("palette.openWorkspacePullRequests", run: { invocation in try openPullRequestLinks(context, invocation) })
         // Find Work: the palette's current-work page (workspaces needing attention, then the
         // user's GitHub review requests and assignments), from the palette, the CLI and the menu.
