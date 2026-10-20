@@ -15,6 +15,7 @@ enum BrowserHandlers {
         BrowserDeviceHandlers.bind(into: registry, context: context)
         bindSplits(into: registry, context: context)
         bindLinkHints(into: registry, context: context)
+        BrowsingDataClear.bindClearHistory(registry, context: context)
         bindUnavailable(registry)
     }
 
@@ -189,7 +190,6 @@ enum BrowserHandlers {
         func unavailable(_ ids: [ActionID], _ reason: String) { registry.bindUnavailable(ids, ActionFailure(message: reason)) }
         unavailable(["toggleReactGrab"], MiscHandlerStrings.reactGrab)
         unavailable(["palette.browserToggleOmnibar"], MiscHandlerStrings.omnibarToggle)
-        unavailable(["palette.browserClearHistory"], MiscHandlerStrings.browserHistory)
         unavailable(["palette.enableBrowser", "palette.disableBrowser"], MiscHandlerStrings.browserToggle)
         unavailable(["browserScreenshotSection"], MiscHandlerStrings.sectionScreenshot)
         unavailable(["palette.vscodeServeWebStop", "palette.vscodeServeWebRestart"], MiscHandlerStrings.vscodeServer)
