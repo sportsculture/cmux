@@ -27,6 +27,9 @@ final class TopHomePageView: NSView {
     var lines: [HomeConversationLine] { rows.homeLines }
     private(set) var host: HomeHostView?
     private(set) var shown: ConversationID?
+    /// A conversation the person started that the inbox does not list yet: opened (with the
+    /// keyboard in its box) when it shows.
+    private var opening: ConversationID?
     private var rowsObservation: Task<Void, Never>?
     private var selectionObservation: Task<Void, Never>?
     private var chiefObservation: Task<Void, Never>?
@@ -69,6 +72,11 @@ final class TopHomePageView: NSView {
             sidebar.setMarkedUnread(false, id)
             self?.show(id)
         }
+        // A plain click on a row or pinned tile (the open one too), or Return: the message box takes the keyboard.
+        list.onOpen = { [weak self] id in
+            sidebar.setMarkedUnread(false, id)
+            self?.open(id)
+        }
         // The list redraws in the same turn, so a dropped tile lands from where it was drawn.
         list.onSetPinned = { [weak self] on, id in
             sidebar.setPinned(on, id)
@@ -104,9 +112,12 @@ final class TopHomePageView: NSView {
             return HomeSidebarModel(rows: home.homeStore.rows, pins: sidebar.pins, me: home.homeStore.me?.id, query: query,
                                     contacts: home.contacts()).people
         }
-        list.onStartTeammate = { person in
+        list.onStartTeammate = { [weak self] person in
             // task-owner: one conversation start; ends with the owner's answer
-            Task { _ = await home.startConversation([.contact(person)], title: "") }
+            Task { [weak self] in
+                guard case .opened(let id) = await home.startConversation([.contact(person)], title: "") else { return }
+                self?.openWhenListed(id)
+            }
         }
         list.onNewMessage = { [weak self] in self?.presentNewMessage() }
         list.composeMenu = { [weak services] in services.map { HomePageMenus.backgroundMenu(registry: $0.registry) } }
@@ -157,6 +168,10 @@ final class TopHomePageView: NSView {
                 guard let self, let id = pending.0, pending.1.contains(id) else { continue }
                 home.pendingSelection = nil
                 show(id)
+                if opening == id {
+                    opening = nil
+                    host?.takeKeyboardOnOpen()
+                }
             }
         }
     }
@@ -220,14 +235,34 @@ final class TopHomePageView: NSView {
         if window?.firstResponder === window || window?.firstResponder == nil { focusPrimaryInput() }
     }
 
+    /// The person opened `id` (a click on its row or pinned tile, the shown one too; Return in the
+    /// list; the previous/next conversation keys; a conversation they started): shown, and its
+    /// message box takes the keyboard, as Messages' message field does. One path for every
+    /// entry point; `show` alone never moves a keyboard the person put somewhere.
+    func open(_ id: ConversationID) {
+        show(id)
+        guard shown == id else { return }
+        host?.takeKeyboardOnOpen()
+    }
+
+    /// A conversation the person just started or made (a teammate from search, a sheet): opened
+    /// now when listed, else once the inbox lists it (`pendingSelection`).
+    func openWhenListed(_ id: ConversationID) {
+        guard let services else { return }
+        if services.home.homeStore.rows.contains(where: { $0.id == id }) {
+            open(id)
+        } else {
+            opening = id
+            services.home.pendingSelection = id
+        }
+    }
+
     /// A permalink: its conversation, and its message's thread at its branch (any depth).
     func show(_ link: HomeDockSelection) { show(ConversationID(link.conversation)); if let m = link.message, let host { HomePageTab.transcript(in: host)?.reveal(message: m) } }
 
-    /// Home's primary input (the message box) takes the keyboard.
-    func focusPrimaryInput() {
-        guard let target = host?.focusTarget else { return }
-        window?.makeFirstResponder(target)
-    }
+    /// Home's primary input (the message box) takes the keyboard, at once or, while the shown
+    /// conversation's first page loads, once the box exists.
+    func focusPrimaryInput() { host?.takeKeyboardOnOpen() }
 
     // MARK: Sheets
 
@@ -262,8 +297,8 @@ final class TopHomePageView: NSView {
     private func present(_ sheet: HomeSheetController) {
         sheet.onFinish = { [weak self] id in
             guard let self, let id else { return }
-            // Shown now when listed; else once the inbox lists it.
-            if services?.home.homeStore.rows.contains(where: { $0.id == id }) == true { show(id) } else { services?.home.pendingSelection = id }
+            // Opened now when listed; else once the inbox lists it.
+            openWhenListed(id)
         }
         guard let window else { return }
         let panel = NSWindow(contentViewController: sheet)
