@@ -36,14 +36,14 @@ import Testing
     }
 
     /// The reply shows whole in exactly one bubble, and no other bubble holds a piece of it.
-    private static func expectOneReply(_ view: MessagesLabHomeView, _ reply: String, chief: ParticipantID, _ step: String) {
+    private static func expectOneReply(_ view: MessagesLabHomeView, _ reply: String, chief: ParticipantID, _ step: String, sent: Bool = true) {
         let shown = bubbles(view)
         let holding = shown.filter { $0.text.contains(head) || $0.text.contains(tail) || $0.text.hasPrefix("d writes") }
         #expect(holding.count == 1, "\(step): the reply shows in \(holding.count) bubbles: \(holding.map(\.text))")
         #expect(holding.first?.text == reply, "\(step): the reply bubble reads \(holding.first?.text ?? "nothing")")
         #expect(holding.first?.sender == chief.rawValue, "\(step): the reply bubble is not the Chief's")
         let mineAt = shown.lastIndex { $0.text == mine }
-        #expect(mineAt != nil, "\(step): my message is not shown")
+        #expect((mineAt != nil) == sent, "\(step): my message is \(mineAt == nil ? "not shown" : "shown before its send")")
         // Before or after my message, never on both sides of it.
         if let mineAt {
             let before = shown[..<mineAt].contains { $0.text.contains(head) || $0.text.contains(tail) }
@@ -90,7 +90,7 @@ import Testing
             store.drafts[Self.conversation] = draft
             frame()
         }
-        Self.expectOneReply(view, Self.head, chief: chief, "before the send")
+        Self.expectOneReply(view, Self.head, chief: chief, "before the send", sent: false)
 
         // I send while it streams (Return).
         let seqBefore = store.summary(Self.conversation)?.lastSeq ?? 0
