@@ -261,6 +261,11 @@ import UniformTypeIdentifiers
         // A token changes only the stream: diffing the unchanged snapshot maps no row (it cost 3.5 ms p50
         // at 60 rows on an M4 Pro mini, every token, before ProjectionCore.step returned early).
         #expect(Self.p(stepMs, 0.5) < 0.5, "an unchanged snapshot's diff p50 \(Self.p(stepMs, 0.5)) ms")
-        #expect(Self.p(frame, 0.95) < 16, "token + drag-over p95 \(Self.p(frame, 0.95)) ms")
+        // Zero dropped frames: every frame (token + layout + drag-over) fits one 60 Hz frame, and after
+        // the reply's first paint (frame 0: its bubble and the rows' bitmaps) one 120 Hz frame.
+        let worst = frame.max() ?? 0, worstAfterFirst = frame.dropFirst().max() ?? 0
+        print(String(format: "DRAGLAG %@ worst frame %.2f ms, after the first %.2f ms", label, worst, worstAfterFirst))
+        #expect(worst < 1000.0 / 60, "a frame took \(worst) ms: a dropped frame at 60 Hz")
+        #expect(worstAfterFirst < 1000.0 / 120, "a frame after the first took \(worstAfterFirst) ms: a dropped frame at 120 Hz")
     }
 }
