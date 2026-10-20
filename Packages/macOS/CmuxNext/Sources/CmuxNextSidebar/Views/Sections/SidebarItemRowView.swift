@@ -80,6 +80,7 @@ class SidebarItemRowView: NSView {
         title.lineBreakMode = .byTruncatingTail
         title.maximumNumberOfLines = 1
         [icon, title, badge, avatarView, activity].forEach(addSubview)
+        icon.setAccessibilityElement(false) // the row's label names the item
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         // Keyboard focus is the fill's next tonal step (`fill`), never the system's blue ring.

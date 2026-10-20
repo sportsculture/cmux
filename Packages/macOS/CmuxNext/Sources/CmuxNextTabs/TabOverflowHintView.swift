@@ -37,6 +37,8 @@ public final class TabOverflowHintView: NSView {
         dismissButton.target = self
         dismissButton.action = #selector(dismiss)
         dismissButton.setAccessibilityLabel(Strings.overflowHintDismiss)
+        dismissButton.setAccessibilityIdentifier("cmux.tabs.overflowHint.dismiss")
+        useButton.setAccessibilityIdentifier("cmux.tabs.overflowHint.use")
         dismissButton.toolTip = Strings.overflowHintDismiss
         for view in [label, useButton, dismissButton] as [NSView] { addSubview(view) }
         applyTokens()
