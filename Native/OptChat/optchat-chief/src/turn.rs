@@ -825,6 +825,8 @@ pub fn run_after_capacity_waits(
             "the model route has no capacity now"
         } else if is_idle_error(&error) {
             "the harness stopped sending events"
+        } else if error.starts_with("session/new:") {
+            "the harness exited while it started"
         } else {
             "the model API cannot be reached now"
         };
@@ -890,6 +892,14 @@ pub fn transient_retry_after(error: &str, attempt: u32) -> Option<Duration> {
     // A turn the idle watchdog stopped runs once again, at once.
     if is_idle_error(error) {
         return (attempt == 0).then_some(Duration::ZERO);
+    }
+    // A harness that exited while the turn's session started (sr2 that
+    // could not reach its gateway in time, turn 2178): twice more, after
+    // the spawn path's pauses.
+    if error.starts_with("session/new:") && crate::subagents::is_transient_start_failure(error) {
+        return crate::subagents::START_RETRY_PAUSES
+            .get(attempt as usize)
+            .copied();
     }
     if !is_connection_error(error) || attempt >= CONNECTION_TRIES {
         return None;

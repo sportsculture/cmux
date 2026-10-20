@@ -86,7 +86,10 @@ fn main() -> std::process::ExitCode {
                 }
             }
         }
-        Some(tool @ ("zoom" | "date" | "spawn" | "tell" | "control" | "profile" | "chiefs")) => {
+        Some(
+            tool @ ("zoom" | "date" | "spawn" | "tell" | "agents" | "control" | "profile"
+            | "chiefs"),
+        ) => {
             let socket = flags
                 .value("socket")
                 .map(PathBuf::from)

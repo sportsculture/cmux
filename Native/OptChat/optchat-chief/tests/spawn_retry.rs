@@ -74,11 +74,11 @@ fn a_host_that_misses_its_hello_is_started_once_more() {
 }
 
 #[test]
-fn a_second_failure_is_reported_not_retried_forever() {
+fn a_third_failure_is_reported_not_retried_forever() {
     let mut h = Harness::new(default_script());
     {
         let mut inner = h.agents.inner.lock().unwrap();
-        for _ in 0..2 {
+        for _ in 0..3 {
             inner
                 .session_errors_once
                 .push_back("session/new: agent host did not answer hello within 5s".into());

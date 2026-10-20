@@ -70,6 +70,24 @@ pub trait Orchestrator: Send + Sync {
     /// Subagent `id`'s whole chat (`zoom("a<N>")`), one page from
     /// character `at`.
     fn agent_chat(&self, id: &str, at: u64) -> Result<String, String>;
+    /// `agents` for subagent `caller`: every other subagent with its title
+    /// and state (acp-chief-issues.md #11).
+    fn agents(&self, caller: &str) -> Result<String, String> {
+        let _ = caller;
+        Err("this Chief host runs no subagents".into())
+    }
+    /// `tell` from subagent `from` to subagent `id`: the message says who
+    /// sent it; never to itself.
+    fn peer_tell(
+        &self,
+        from: &str,
+        id: &str,
+        message: &str,
+        key: Option<&str>,
+    ) -> Result<String, String> {
+        let _ = (from, id, message, key);
+        Err("this Chief host runs no subagents".into())
+    }
 }
 
 /// What `chief zoom|date|spawn|tell WORDS` asks: the tool call, its usage
@@ -100,6 +118,7 @@ pub fn command(tool: &str, args: &[&str]) -> Result<Command, String> {
         ("spawn", tasks) if !tasks.is_empty() && tasks[0] != "--cwd" => {
             Call::parse("spawn", &serde_json::json!({"tasks": tasks}))
         }
+        ("agents", []) => Call::parse("agents", &serde_json::json!({})),
         ("profile", []) => Call::parse("profile", &serde_json::json!({})),
         ("profile", [args]) => match serde_json::from_str::<Value>(args) {
             Ok(v @ Value::Object(_)) => Call::parse("profile", &v),
@@ -146,6 +165,7 @@ pub fn usage(tool: &str) -> String {
         match tool {
             "zoom" => "ID N | SUBAGENT [AT]",
             "date" => "ID",
+            "agents" => "",
             "spawn" => "[--cwd DIR] \"task\" [\"task\" ...]",
             "profile" => "['{\"role\": \"...\", \"avatar_path\": \"/path/pic.png\"}']",
             "chiefs" =>
@@ -281,6 +301,8 @@ pub enum Call {
     },
     /// `control` (brain/control.rs): subagent control.
     Control(ControlCall),
+    /// `agents`: a subagent's list of the other subagents.
+    Agents,
     /// `profile` (chief_profile.rs): read or change the Chief's own record.
     Profile {
         args: Value,
@@ -373,6 +395,7 @@ impl Call {
                 })
             }
             "control" => ControlCall::parse(args).map(Call::Control),
+            "agents" => Ok(Call::Agents),
             "profile" => {
                 let mut args = args.as_object().cloned().unwrap_or_default();
                 // The socket request's own keys are not the tool's arguments.
@@ -406,10 +429,11 @@ impl Call {
             Call::Spawn { .. }
             | Call::Tell { .. }
             | Call::Control(_)
+            | Call::Agents
             | Call::ZoomAgent { .. }
             | Call::Profile { .. }
             | Call::Chiefs { .. } => {
-                "spawn, tell, profile, chiefs and a subagent's zoom are served by the Chief host"
+                "spawn, tell, agents, profile, chiefs and a subagent's zoom are served by the Chief host"
                     .to_owned()
             }
         }
@@ -420,6 +444,7 @@ impl Call {
             Call::Zoom { id, n } => json!({"tool": "zoom", "id": id, "n": n}),
             Call::ZoomAgent { id, at } => json!({"tool": "zoom", "id": id, "at": at}),
             Call::Date { id } => json!({"tool": "date", "id": id}),
+            Call::Agents => json!({"tool": "agents"}),
             Call::Spawn { tasks, cwd, effort } => {
                 let mut v = json!({"tool": "spawn", "tasks": tasks});
                 if let Some(cwd) = cwd {
@@ -557,6 +582,17 @@ fn connection(conn: UnixStream, served: &Served) {
             _ => crate::turn_caller::Role::Other,
         })
     };
+    // The subagent id of a caller under a subagent session (its own
+    // session name, never the request's word): who a `tell` comes from.
+    let caller_cell = std::cell::OnceCell::new();
+    let caller = || {
+        caller_cell
+            .get_or_init(|| match (&served.turn, peer) {
+                (Some(binding), Some(pid)) => binding.subagent_of(pid),
+                _ => None,
+            })
+            .clone()
+    };
     let control = served.control.as_ref();
     let Ok(mut out) = conn.try_clone() else {
         return;
@@ -676,14 +712,31 @@ fn connection(conn: UnixStream, served: &Served) {
                 let grant = served.chief.as_ref().map(|c| c.grant());
                 let grant = grant.as_ref();
                 let answer = match Call::parse(tool, &req) {
+                    // A subagent tells another subagent (acp-chief-issues.md
+                    // #11), as the one its session is; never as the Chief.
+                    Ok(Call::Tell { id, message, key }) if subagent => {
+                        match (&served.orchestrator, caller()) {
+                            (Some(o), Some(from)) => {
+                                o.peer_tell(&from, &id, &message, key.as_deref())
+                            }
+                            (Some(_), None) => Err(
+                                "tell: only a subagent session of this Chief may tell another subagent"
+                                    .to_owned(),
+                            ),
+                            (None, _) => Err("this Chief host runs no subagents".to_owned()),
+                        }
+                    }
+                    Ok(Call::Agents) => match &served.orchestrator {
+                        Some(o) => o.agents(&caller().unwrap_or_default()),
+                        None => Err("this Chief host runs no subagents".to_owned()),
+                    },
                     Ok(
                         Call::Spawn { .. }
-                        | Call::Tell { .. }
                         | Call::Control(_)
                         | Call::Profile { .. }
                         | Call::Chiefs { .. },
                     ) if subagent => {
-                        Err("subagents have no spawn, tell, control, profile or chiefs".to_owned())
+                        Err("subagents have no spawn, control, profile or chiefs".to_owned())
                     }
                     // `chiefs` only for this host's own turn: the turn key the
                     // host gave its turn sessions alone, from a caller that

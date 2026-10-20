@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use crate::prompt::{
-    CONTROL_DESCRIPTION, DATE_DESCRIPTION, SPAWN_CWD_DESCRIPTION, SPAWN_DESCRIPTION,
-    TELL_DESCRIPTION, ZOOM_AGENT_DESCRIPTION, ZOOM_DESCRIPTION,
+    AGENTS_DESCRIPTION, CONTROL_DESCRIPTION, DATE_DESCRIPTION, PEER_TELL_DESCRIPTION,
+    SPAWN_CWD_DESCRIPTION, SPAWN_DESCRIPTION, TELL_DESCRIPTION, ZOOM_AGENT_DESCRIPTION,
+    ZOOM_DESCRIPTION,
 };
 use crate::tools::{self, Call};
 
@@ -39,6 +40,13 @@ pub fn tools_granted(subagent: bool, grant: &crate::chief_profile::Grant) -> Val
         json!({"name": "date", "description": DATE_DESCRIPTION,
          "inputSchema": {"type": "object", "properties": {"id": int}, "required": ["id"], "additionalProperties": false}}),
     ];
+    // A subagent lists the others and tells one (acp-chief-issues.md #11).
+    if subagent {
+        list.push(json!({"name": "agents", "description": AGENTS_DESCRIPTION,
+         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}}));
+        list.push(json!({"name": "tell", "description": PEER_TELL_DESCRIPTION,
+         "inputSchema": {"type": "object", "properties": {"id": text, "message": text, "key": {"type": "string", "minLength": 1, "description": "Optional idempotency key: a repeat with the same key is not sent again."}}, "required": ["id", "message"], "additionalProperties": false}}));
+    }
     if !subagent && grant.allows("spawn") {
         list.push(json!({"name": "spawn", "description": SPAWN_DESCRIPTION,
          "inputSchema": {"type": "object", "properties": {"tasks": {"type": "array", "items": text, "minItems": 1}, "cwd": {"type": "string", "minLength": 1, "description": SPAWN_CWD_DESCRIPTION}, "effort": {"type": "string", "enum": crate::tools::EFFORTS, "description": "How hard they think; by default, as hard as you."}}, "required": ["tasks"], "additionalProperties": false}}));
@@ -134,7 +142,6 @@ pub fn handle(message: &Value, backend: &dyn Backend) -> Option<Value> {
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             let answer = Call::parse(name, &args).and_then(|call| match call {
                 Call::Spawn { .. }
-                | Call::Tell { .. }
                 | Call::Control(_)
                 | Call::Profile { .. }
                 | Call::Chiefs { .. }

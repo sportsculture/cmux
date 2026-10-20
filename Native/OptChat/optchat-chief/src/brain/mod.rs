@@ -180,6 +180,27 @@ pub enum Input {
         key: Option<String>,
         reply: Sender<Result<String, String>>,
     },
+    /// `agents` from subagent `caller` (acp-chief-issues.md #11).
+    Agents {
+        caller: String,
+        reply: Sender<Result<String, String>>,
+    },
+    /// `tell` from subagent `from` to subagent `id`.
+    PeerTell {
+        from: String,
+        id: String,
+        message: String,
+        key: Option<String>,
+        reply: Sender<Result<String, String>>,
+    },
+    /// A tell to a running subagent that neither its steer nor the prompt
+    /// after it delivered (acp-chief-issues.md #10): it goes back into the
+    /// subagent's inbox, first, for its next prompt.
+    TellUndelivered {
+        id: String,
+        message: String,
+        error: String,
+    },
     /// `control(action, ...)` (control.rs).
     Control {
         request: crate::tools::ControlCall,
@@ -880,6 +901,21 @@ impl Brain {
             } => {
                 let answer = self.tell_keyed(&id, &message, key.as_deref());
                 let _ = reply.send(answer);
+            }
+            Input::Agents { caller, reply } => {
+                let _ = reply.send(Ok(self.agents_list(&caller)));
+            }
+            Input::PeerTell {
+                from,
+                id,
+                message,
+                key,
+                reply,
+            } => {
+                let _ = reply.send(self.peer_tell(&from, &id, &message, key.as_deref()));
+            }
+            Input::TellUndelivered { id, message, error } => {
+                self.tell_undelivered(&id, message, &error);
             }
             Input::Control { request, reply } => {
                 let answer = self.control(&request);
