@@ -32,6 +32,10 @@ final class SidebarIconView: NSView {
         imageView.imageScaling = .scaleProportionallyDown
         addSubview(imageView)
         addSubview(emoji)
+        // Decorative: the row it sits in names the workspace, group or machine.
+        setAccessibilityElement(false)
+        imageView.setAccessibilityElement(false)
+        emoji.setAccessibilityElement(false)
     }
 
     @available(*, unavailable)

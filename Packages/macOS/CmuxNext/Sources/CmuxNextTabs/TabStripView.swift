@@ -194,6 +194,7 @@ public final class TabStripView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.tabGroup)
         setAccessibilityLabel(Strings.axStrip)
+        setAccessibilityIdentifier("cmux.tabs.strip")
     }
 
     @available(*, unavailable)

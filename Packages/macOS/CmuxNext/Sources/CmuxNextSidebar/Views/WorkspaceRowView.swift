@@ -108,6 +108,8 @@ final class WorkspaceRowView: SidebarRowView {
         mutedMark.imageScaling = .scaleProportionallyDown
         mutedMark.isHidden = true
         mutedMark.setAccessibilityElement(false)
+        // The row's label says the agent's state.
+        agentMark.setAccessibilityElement(false)
         [icon, title, subtitle, timeLabel, metaLabel, activity, agentMark, mutedMark, badge, rowBadge, presenceDots, closeButton, moreButton, pinButton, disclosureButton, tabCount, prBadge, placeholderBar, statusBlock]
             .forEach(addSubview)
         disclosureButton.isHidden = true
@@ -271,6 +273,9 @@ final class WorkspaceRowView: SidebarRowView {
         setAccessibilityElement(!isShowingPlaceholder)
         setAccessibilityRole(.row)
         setAccessibilityIdentifier("cmux.sidebar.workspace.\(ws.id.rawValue)")
+        for (button, control) in [(closeButton, "close"), (moreButton, "more"), (pinButton, "pin"), (disclosureButton, "disclosure")] {
+            button.setAccessibilityIdentifier("cmux.sidebar.workspace.\(ws.id.rawValue).\(control)")
+        }
         setAccessibilityLabel(accessibilityText(ws, content: shown))
         needsLayout = true
         needsDisplay = true
