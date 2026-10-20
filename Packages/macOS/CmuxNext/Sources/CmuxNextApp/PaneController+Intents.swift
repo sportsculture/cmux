@@ -175,6 +175,9 @@ extension PaneController {
         }
         BenchSpans.measure("pane.apply") { apply(snapshot()) }
         guard !commands.isEmpty else { return }
+        // Its last tab closes: the whole pane leaves now, its neighbours springing into its space
+        // (close-animation DESIGN.md); the strip has nothing left to animate.
+        let paneClose = stripModel.tabs.isEmpty ? showPaneClose() : nil
         let keys = Set(ids.map(\.rawValue))
         let runs = daemon.closeRuns(surfaces: surfaces, commands: commands.map { ($0.label, $0.run) })
         let userClose = CloseUndoToasts.isUserClose // a refused user close shows RefusedCloseNotice
@@ -185,6 +188,7 @@ extension PaneController {
             // lands: keep the tabs hidden until a snapshot ordered after the
             // closes says which ones remain, instead of flashing them back.
             if unknown { await daemon.store.refresh() }
+            finishPaneClose(paneClose, failed: failed)
             pendingClosed.subtract(keys)
             for key in keys { services.cache.release(key) }
             if failed || unknown { resyncStrip() }
