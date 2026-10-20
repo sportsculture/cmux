@@ -10,7 +10,15 @@ import os
 /// enter the main actor with `assumeIsolated`.
 nonisolated final class TabAccessibilityElement: NSAccessibilityElement, @unchecked Sendable {
     nonisolated(unsafe) var onPress: (@MainActor () -> Void)?
-    nonisolated(unsafe) var onClose: (@MainActor () -> Void)?
+    /// The tab's VoiceOver actions (Mute tab or Unmute tab, Close Tab), set on the main actor
+    /// by the cell (`updateAccessibility`).
+    nonisolated(unsafe) var actions: [Action] = []
+
+    /// One VoiceOver custom action: its spoken name and what it runs.
+    struct Action {
+        let name: String
+        let run: @MainActor () -> Void
+    }
     /// VoiceOver moved its focus onto (true) or off (false) this element.
     nonisolated(unsafe) var onFocus: (@MainActor (Bool) -> Void)?
 
@@ -33,13 +41,14 @@ nonisolated final class TabAccessibilityElement: NSAccessibilityElement, @unchec
     }
 
     override func accessibilityCustomActions() -> [NSAccessibilityCustomAction]? {
-        guard let onClose, Self.onMain("custom actions") else { return nil }
-        let name = MainActor.assumeIsolated { Strings.axClose } // main-proof: guarded by Self.onMain (Thread.isMainThread) above
-        return [NSAccessibilityCustomAction(name: name) {
-            guard Self.onMain("close") else { return false }
-            MainActor.assumeIsolated { onClose() } // main-proof: guarded by Self.onMain (Thread.isMainThread) above
-            return true
-        }]
+        guard Self.onMain("custom actions"), !actions.isEmpty else { return nil }
+        return actions.map { action in
+            NSAccessibilityCustomAction(name: action.name) {
+                guard Self.onMain("custom action") else { return false }
+                MainActor.assumeIsolated { action.run() } // main-proof: guarded by Self.onMain (Thread.isMainThread) above
+                return true
+            }
+        }
     }
 
     /// Faults from accessibility callbacks that arrive off the main thread.
@@ -75,6 +84,12 @@ extension TabCell {
         case .none: if item.isUnread { parts.append(Strings.axUnread) }
         }
         accessibility.setAccessibilityLabel(parts.joined(separator: ", "))
+        var actions: [TabAccessibilityElement.Action] = []
+        if let audio = item.audio, let toggleAudio = accessibilityToggleAudio {
+            actions.append(.init(name: audio == .muted ? Strings.unmuteTab : Strings.muteTab, run: toggleAudio))
+        }
+        if let close = accessibilityClose { actions.append(.init(name: Strings.axClose, run: close)) }
+        accessibility.actions = actions
         accessibility.setAccessibilityValue(isSelected ? 1 : 0)
         accessibility.setAccessibilityHelp([item.machineBadgeHelp, item.subtitle].compactMap(\.self).joined(separator: ", "))
     }
