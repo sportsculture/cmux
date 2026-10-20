@@ -4,7 +4,7 @@ import Foundation
 import Testing
 
 /// The Extensions menu opens and hovers within a frame budget (u2229: "this extensions context
-/// menu is also extremely laggy"). Budgets: an open under 50 ms, a second open under 10 ms, a
+/// menu is also extremely laggy", u2426: "menu visible within one frame"). Budgets: an open under 16 ms, a second open under 10 ms, a
 /// hover under 16 ms, with 40 extensions.
 @MainActor @Suite(.serialized) struct ExtensionsMenuPerformanceTests {
     static let count = 40
@@ -67,7 +67,7 @@ import Testing
         let reopen = clock.measure { controller.show(host: tab, handler: handler, anchor: anchor) }
         #expect(controller.isShown)
         print("TOOLBAR-PERF extensions.open=\(Self.milliseconds(open)) ms extensions.reopen=\(Self.milliseconds(reopen)) ms")
-        #expect(Self.milliseconds(open) < 50, "open took \(Self.milliseconds(open)) ms")
+        #expect(Self.milliseconds(open) < 16, "open took \(Self.milliseconds(open)) ms")
         #expect(Self.milliseconds(reopen) < 10, "reopen took \(Self.milliseconds(reopen)) ms")
         controller.close()
     }

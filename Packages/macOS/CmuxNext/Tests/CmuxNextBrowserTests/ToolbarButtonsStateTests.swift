@@ -56,12 +56,14 @@ import Testing
         var shown = false
         buttons.popUpMenu = { _, _, _ in
             shown = true
+            #expect(more.isMenuOpen, "More is not pressed while its menu is open")
             PointerHover.debugPointers[ObjectIdentifier(window)] = .init(point: NSPoint(x: 900, y: 10), mouse: NSEvent.mouseLocation)
         }
         buttons.present(NSMenu(), from: .overflow)
         CFRunLoopRunInMode(.defaultMode, 0, true)
         try #require(shown)
         #expect(!more.isHovering, "More stayed lit after its menu closed")
+        #expect(!more.isMenuOpen)
         PointerHover.setDebugPointer(nil, in: window)
     }
 
@@ -88,6 +90,45 @@ import Testing
         await Self.settle()
         #expect(chrome.extensionToolbar.visibleIDs == ["a"])
         #expect(leaving.superview != nil, "the unpinned icon left at once, with no fade")
+    }
+
+    /// The Extensions button is pressed while its bubble is open and normal after every way
+    /// the bubble closes: Escape, the close button, a second click, a pick, a click outside.
+    @Test(arguments: ["close", "toggle", "manage", "dismiss"])
+    func theExtensionsButtonIsPressedOnlyWhileItsBubbleIsOpen(_ path: String) async throws {
+        let tab = Self.chromiumTab([Self.action("a", pinned: false)])
+        let chrome = BrowserChromeView(tab: tab)
+        let window = Self.window(chrome)
+        defer { window.close() }
+        await Self.settle()
+        let toolbar = chrome.extensionToolbar
+        toolbar.showMenu()
+        try #require(toolbar.isMenuShown)
+        #expect(toolbar.puzzle.isMenuOpen, "the Extensions button is not pressed while the bubble is open")
+        switch path {
+        case "close": toolbar.menuController.close()
+        case "toggle": toolbar.showMenu()
+        case "manage": _ = toolbar.menuController.choose("manage", extension: nil)
+        default: toolbar.menuController.dismiss()
+        }
+        #expect(!toolbar.isMenuShown)
+        #expect(!toolbar.puzzle.isMenuOpen, "the Extensions button stayed pressed after \(path)")
+    }
+
+    /// Pinning fades the new icon in while the neighbours slide.
+    @Test func pinningFadesTheNewIconIn() async throws {
+        Motion.reduceMotionOverride = false
+        defer { Motion.reduceMotionOverride = nil }
+        let tab = Self.chromiumTab([Self.action("a", pinned: true), Self.action("b", pinned: false)])
+        let chrome = BrowserChromeView(tab: tab)
+        let window = Self.window(chrome)
+        defer { window.close() }
+        await Self.settle()
+        #expect(chrome.extensionToolbar.arriving.isEmpty, "a tab's first icons appeared with an animation")
+        tab.extensionActions = [Self.action("a", pinned: true), Self.action("b", pinned: true)]
+        await Self.settle()
+        #expect(chrome.extensionToolbar.visibleIDs == ["a", "b"])
+        #expect(chrome.extensionToolbar.arriving == ["b"])
     }
 
     @Test func underReduceMotionUnpinningIsInstant() async throws {

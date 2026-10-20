@@ -33,7 +33,7 @@ public nonisolated struct BrowserToolbarPolicy {
         func hinted(_ text: String) -> String { shortcut.map { "\(text) (\($0))" } ?? text }
         switch button {
         case .media:
-            return BrowserToolbarButtonState(icon: .mediaHub, label: hinted(Strings.toolbarMedia), isActive: facts.media.isPlaying)
+            return BrowserToolbarButtonState(icon: .mediaHub, label: hinted(Strings.toolbarMedia), )
         case .zoom:
             return BrowserToolbarButtonState(icon: .search, label: hinted(Strings.toolbarZoom(BrowserZoom.percent(facts.zoom))))
         case .favorites:
