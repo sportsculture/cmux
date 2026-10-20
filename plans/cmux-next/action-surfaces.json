@@ -13707,7 +13707,7 @@
       "title_table" : "ActionCatalog"
     },
     {
-      "cli" : "unimplemented",
+      "cli" : "offered",
       "cli_name" : "browser enable",
       "context_menu" : "noObject",
       "context_menus" : [
@@ -13720,7 +13720,7 @@
       "default_shortcut" : null,
       "id" : "palette.enableBrowser",
       "main_menu" : null,
-      "mcp" : "unimplemented",
+      "mcp" : "systemChange",
       "palette" : "offered",
       "palette_section" : {
         "id" : "category.browser",
@@ -13735,7 +13735,7 @@
       "title_table" : "ActionCatalog"
     },
     {
-      "cli" : "unimplemented",
+      "cli" : "offered",
       "cli_name" : "browser disable",
       "context_menu" : "noObject",
       "context_menus" : [
@@ -13748,7 +13748,7 @@
       "default_shortcut" : null,
       "id" : "palette.disableBrowser",
       "main_menu" : null,
-      "mcp" : "unimplemented",
+      "mcp" : "systemChange",
       "palette" : "offered",
       "palette_section" : {
         "id" : "category.browser",
