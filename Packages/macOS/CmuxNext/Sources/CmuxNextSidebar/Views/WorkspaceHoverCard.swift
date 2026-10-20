@@ -427,7 +427,7 @@ final class WorkspaceHoverCardView: NSView {
     }
 
     private func addFactRow() {
-        let icon = NSImageView()
+        let icon = DecorativeImageView()
         let label = ChromeLabel(labelWithString: "")
         label.font = Typography.body
         label.lineBreakMode = .byTruncatingMiddle
@@ -476,7 +476,7 @@ extension WorkspaceHoverCardView {
 
 /// An icon on a first-baseline row whose center sits on the middle of `line`'s first line (midway
 /// between its ascender and descender), so it stays with the name's first line when the name wraps.
-private final class LineIconView: NSImageView {
+private final class LineIconView: DecorativeImageView {
     weak var line: ChromeLabel?
     /// The icon's height (its constraint), not `bounds`, which is zero before the first layout.
     var side: CGFloat = 0
