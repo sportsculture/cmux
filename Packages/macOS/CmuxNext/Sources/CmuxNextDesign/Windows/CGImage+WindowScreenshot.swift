@@ -25,6 +25,20 @@ extension CGImage {
         return cropping(to: pixels)
     }
 
+    /// This image redrawn at `width` x `height` pixels, or itself when it
+    /// already has that size; nil when either side is not positive or no
+    /// bitmap context can be made.
+    public nonisolated func resampled(width newWidth: Int, height newHeight: Int) -> CGImage? {
+        guard newWidth > 0, newHeight > 0 else { return nil }
+        if width == newWidth, height == newHeight { return self }
+        guard let context = CGContext(data: nil, width: newWidth, height: newHeight, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+        return context.makeImage()
+    }
+
     /// Whether no pixel of this image is visible (every alpha zero, sampled
     /// at 64 x 64). A capture that comes back this way failed.
     public nonisolated var isFullyTransparent: Bool {

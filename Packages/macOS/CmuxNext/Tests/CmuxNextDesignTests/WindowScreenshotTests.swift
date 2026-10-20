@@ -120,11 +120,20 @@ import Testing
         return last
     }
 
-    private func expectWindowPixels(_ image: CGImage?, _ fixture: Fixture, path: String) throws {
+    /// `exactSize`: the image is frame x backing scale pixels (the
+    /// screenshot's contract). The raw window-server image may differ by a
+    /// few pixels on a virtual display, so it is only checked for the
+    /// window's aspect ratio.
+    private func expectWindowPixels(_ image: CGImage?, _ fixture: Fixture, path: String, exactSize: Bool = true) throws {
         let image = try #require(image, "\(path) gave no image")
         let window = fixture.window
-        #expect(image.width == Int((window.frame.width * window.backingScaleFactor).rounded()), "\(path) width")
-        #expect(image.height == Int((window.frame.height * window.backingScaleFactor).rounded()), "\(path) height")
+        if exactSize {
+            #expect(image.width == Int((window.frame.width * window.backingScaleFactor).rounded()), "\(path) width")
+            #expect(image.height == Int((window.frame.height * window.backingScaleFactor).rounded()), "\(path) height")
+        } else {
+            let expected = Double(image.width) * window.frame.height / window.frame.width
+            #expect(abs(Double(image.height) - expected) <= 2, "\(path) is \(image.width) x \(image.height), not the window's shape")
+        }
         #expect(!image.isFullyTransparent, "\(path) is blank")
         let metal = pixel(image, at: CGPoint(x: 180, y: 60), size: window.frame.size)
         #expect(isRed(metal), "\(path): the Metal layer came out \(metal), not red")
@@ -147,7 +156,7 @@ import Testing
         let fixture = try fixture()
         defer { fixture.close() }
         let image = try await settledImage(fixture) { fixture.window.compositedSnapshot() }
-        try expectWindowPixels(image, fixture, path: "CGWindowListCreateImage")
+        try expectWindowPixels(image, fixture, path: "CGWindowListCreateImage", exactSize: false)
     }
 
     @Test func screenCaptureKitsOwnProcessImageShowsMetalPixels() async throws {

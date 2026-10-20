@@ -35,7 +35,8 @@ enum ScreenshotOutput: Equatable {
         // The app runs elsewhere than the caller: the cmux CLI makes a relative
         // path absolute before it sends it; any other caller must.
         guard path.hasPrefix("/") else { throw ActionFailure(message: ScreenshotStrings.outRelative(trimmed)) }
-        guard !path.hasSuffix("/"), !isDirectory(path) else { throw ActionFailure(message: ScreenshotStrings.outIsFolder(trimmed)) }
+        // `expandingTildeInPath` drops a trailing slash, so check the text.
+        guard !trimmed.hasSuffix("/"), !isDirectory(path) else { throw ActionFailure(message: ScreenshotStrings.outIsFolder(trimmed)) }
         self = .file(URL(fileURLWithPath: path).standardizedFileURL)
     }
 

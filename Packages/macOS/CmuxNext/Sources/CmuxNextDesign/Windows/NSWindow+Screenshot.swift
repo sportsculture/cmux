@@ -29,7 +29,14 @@ extension NSWindow {
         guard windowNumber > 0 else { throw WindowScreenshotFailure.notOnScreen }
         guard !isMiniaturized else { throw WindowScreenshotFailure.minimized }
         guard isVisible else { throw WindowScreenshotFailure.notOnScreen }
-        if let image = compositedSnapshot(includeChild: includeChild) { return image }
+        if let image = compositedSnapshot(includeChild: includeChild) {
+            // The window server picks its own resolution (a virtual display
+            // can give a few pixels less than frame x scale); the contract is
+            // the backing scale, so a different size is redrawn to it.
+            let scale = backingScaleFactor
+            let width = Int((frame.width * scale).rounded()), height = Int((frame.height * scale).rounded())
+            if let sized = image.resampled(width: width, height: height) { return sized }
+        }
         if #available(macOS 14.4, *), let image = await screenCaptureKitSnapshot() { return image }
         throw WindowScreenshotFailure.blank
     }
