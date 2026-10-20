@@ -13,6 +13,10 @@ extension LayoutRootView {
         case horizontal(ScreenContentView)
         case vertical(ScreenContentView, ColumnID)
         case passthrough
+        /// A canvas pan (LayoutRootView+Canvas), through its momentum.
+        case canvas(ScreenContentView)
+        /// A gesture that began over a canvas pane: horizontal pans, vertical scrolls the pane.
+        case canvasUndecided(ScreenContentView)
     }
 
     func handleMonitored(_ event: NSEvent) -> NSEvent? {
@@ -30,6 +34,8 @@ extension LayoutRootView {
             return event
         case .scrollWheel:
             return handleScroll(event, locationInWindow: event.locationInWindow) ? nil : event
+        case .magnify:
+            return handleCanvasMagnify(event) ? nil : event
         default:
             return event
         }
@@ -61,6 +67,7 @@ extension LayoutRootView {
     }
 
     private func handleScrollEvent(_ event: NSEvent, at locationInWindow: NSPoint) -> NSEvent? {
+        if let consumed = handleCanvasScroll(event, at: locationInWindow) { return consumed ? nil : event }
         // Momentum after a horizontal gesture we consumed: our spring owns the coast.
         if !event.momentumPhase.isEmpty {
             guard consumeMomentum else { return event }
@@ -93,6 +100,8 @@ extension LayoutRootView {
         }
 
         switch scrollLock {
+        case .canvas, .canvasUndecided:
+            return event
         case .idle, .passthrough:
             if case .passthrough = scrollLock, phase.contains(.began) { focusPaneForPassThroughScroll(at: locationInWindow) }
             if phase.contains(.ended) || phase.contains(.cancelled) { scrollLock = .idle }
