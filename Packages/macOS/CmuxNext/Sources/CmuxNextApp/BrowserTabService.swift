@@ -221,7 +221,7 @@ final class BrowserTabService {
     }
 
     static func message(_ reason: CEFUnavailableReason) -> String {
-        reason.detail ?? RefusalStrings.chromiumUnavailable
+        ChromiumFallbackLog.refusal(for: reason) ?? reason.detail ?? RefusalStrings.chromiumUnavailable
     }
 
     /// The engine for a new tab (`BrowserEngineResolver`): an explicit
