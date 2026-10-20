@@ -1038,9 +1038,11 @@ impl Terminal {
             cell_width: cell_width_px,
             cell_height: cell_height_px,
         };
-        self.bump_history_epoch();
-        self.reset_history_anchor();
+        // A cell-pixel-only change keeps every history row; frontends need
+        // not read the history pages again.
         if reflows {
+            self.bump_history_epoch();
+            self.reset_history_anchor();
             self.history_markers_reflowed();
         }
         Ok(())

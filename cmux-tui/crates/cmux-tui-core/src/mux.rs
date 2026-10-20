@@ -452,14 +452,22 @@ type RestoredViewport = (std::collections::BTreeMap<SplitId, f32>, Option<f32>, 
 
 /// Startup diagnostics kept until the frontend installs its sink.
 const MAX_PENDING_DIAGNOSTICS: usize = 8;
-const TERMINAL_DIMENSION_MAX: u16 = 10_000;
 const WORKSPACE_REGISTRY_LIMIT: usize = 4_096;
 const WORKSPACE_KEY_MAX_BYTES: usize = 256;
 const WORKSPACE_NAME_MAX_BYTES: usize = 1_024;
 const TERMINAL_HOST_CLOSE_WAIT: Duration = Duration::from_secs(4);
 const TERMINAL_READER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(1);
+/// The one size rule for every terminal request: the sizing engine's
+/// minimum (2 x 1), the largest side, and the host's cell-area limit (rows
+/// give way, so the width a person sees is kept). Local and hosted
+/// terminals then accept the same sizes.
 pub(crate) fn clamp_terminal_size(cols: u16, rows: u16) -> (u16, u16) {
-    (cols.clamp(1, TERMINAL_DIMENSION_MAX), rows.clamp(1, TERMINAL_DIMENSION_MAX))
+    use crate::terminal_host_runtime::{TERMINAL_CELL_AREA_MAX, TERMINAL_DIMENSION_MAX};
+    let grid = TerminalGridSize::new(cols, rows).clamped();
+    let cols = grid.cols.min(TERMINAL_DIMENSION_MAX);
+    let rows = grid.rows.min(TERMINAL_DIMENSION_MAX);
+    let area_rows = u16::try_from(TERMINAL_CELL_AREA_MAX / u64::from(cols)).unwrap_or(u16::MAX);
+    (cols, rows.min(area_rows))
 }
 
 /// A durable client install identity: non-empty, at most 128 ASCII graphic
