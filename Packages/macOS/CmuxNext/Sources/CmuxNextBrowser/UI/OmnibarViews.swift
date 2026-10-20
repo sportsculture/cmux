@@ -10,11 +10,7 @@ import QuartzCore
 final class OmnibarPillView: NSView {
     enum State { case idle, editing, card }
 
-    /// Focus, blur and the card switch the look at once, on the frame of the
-    /// press, as Chrome's omnibox does; only the pointer's hover eases. A
-    /// fade here kept the focusing click's editing fill from showing for
-    /// several frames after the press (omnibar mouse-down latency).
-    var state: State = .idle { didSet { if oldValue != state { refresh(animated: false) } } }
+    var state: State = .idle { didSet { if oldValue != state { refresh(animated: true) } } }
     /// Where the pointer is now (`OmnibarPointer`): a hide, a tab switch or
     /// a window change under a still pointer clears it.
     private var hover: PointerHover?
