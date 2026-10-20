@@ -1185,3 +1185,6 @@ fn settings_validate_reports_what_the_owner_would() {
         local(parse(&args(&["settings", "validate", missing.as_str()])).unwrap().unwrap());
     assert_eq!(missing.unwrap_err()["code"], "settings.unreadable");
 }
+
+#[path = "right_tests.rs"]
+mod right;
