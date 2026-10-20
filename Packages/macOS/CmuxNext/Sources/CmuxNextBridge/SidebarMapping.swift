@@ -171,9 +171,20 @@ public struct SidebarMapping {
         row.lastMessage = lastMessage(front, tabs)
         if showsUnread { row.notificationText = newestUnread(tabs).flatMap(notificationText) }
         row.reported = Self.reported(workspace.status, asset: iconAsset)
+        row.checklist = workspace.checklist.map(Self.checklistItem)
         row.detail = detail(tabs: tabs, indicator: indicator.state, agentTab: agentTab(tabs), front: front,
                             notification: row.notificationText)
         return row
+    }
+
+    /// A daemon checklist item as the sidebar draws it.
+    static func checklistItem(_ item: WorkspaceChecklistItem) -> SidebarChecklistItem {
+        let state: SidebarChecklistItem.State = switch item.state {
+        case .todo: .todo
+        case .inProgress: .inProgress
+        case .done: .done
+        }
+        return SidebarChecklistItem(id: item.id, text: item.text, state: state, attachmentCount: item.attachments.count)
     }
 
     /// The tab the row stands for: the selected tab of the workspace's most
