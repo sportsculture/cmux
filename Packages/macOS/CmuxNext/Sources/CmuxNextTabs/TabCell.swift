@@ -118,8 +118,8 @@ final class TabCell {
     var hasCloseLayers: Bool { closeBackgroundLayer != nil || closeGlyphLayer != nil }
 
     private(set) var visibility = TabChromeVisibility(showsIcon: true, showsTitle: true, showsClose: false, centersContent: false)
-    /// Close button frame in this view's coordinates, or nil when hidden.
-    private(set) var closeButtonRect: CGRect?
+    /// Close button frame in this view's coordinates, or nil when hidden. Set with `setCloseButtonRect(_:pill:)`.
+    var closeButtonRect: CGRect?
 
     /// Title font; the strip updates it when the chrome font size changes.
     var titleFont = Typography.body {
@@ -441,7 +441,7 @@ final class TabCell {
         } else {
             removeCloseLayers()
         }
-        closeButtonRect = closeRect
+        setCloseButtonRect(closeRect, pill: bounds)
 
         if visibility.showsTitle {
             // The title always spans to the trailing inset, so it never moves

@@ -74,6 +74,8 @@ final class GroupHeaderRowView: SidebarRowView {
         pill.actions = ["bounds": NSNull(), "position": NSNull(), "backgroundColor": NSNull()]
         dot.actions = ["bounds": NSNull(), "position": NSNull(), "backgroundColor": NSNull()]
         [glyph, name, count, pin, chevron, activity, badge, addButton, moreButton].forEach(addSubview)
+        // The header's label says the name, the count and (through AXExpanded) the chevron.
+        [pin, chevron].forEach { $0.setAccessibilityElement(false) }
         moreButton.onPress = { [weak self] in self?.onEdit?() }
         addButton.onPress = { [weak self] in self?.onAdd?() }
         // The + and more show only on hover; VoiceOver reaches the editor and the menu here always.
@@ -132,6 +134,9 @@ final class GroupHeaderRowView: SidebarRowView {
         setAccessibilityElement(true)
         setAccessibilityRole(.disclosureTriangle)
         setAccessibilityLabel("\(group.name), \(Strings.groupCount(row.childCount))")
+        setAccessibilityIdentifier("cmux.sidebar.group.\(group.id.rawValue)")
+        moreButton.setAccessibilityIdentifier("cmux.sidebar.group.\(group.id.rawValue).more")
+        addButton.setAccessibilityIdentifier("cmux.sidebar.group.\(group.id.rawValue).add")
         setAccessibilityHelp(collapsed ? GroupEditorStrings.expand : GroupEditorStrings.collapse)
         setAccessibilityExpanded(!collapsed)
         needsLayout = true
