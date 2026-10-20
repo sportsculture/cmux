@@ -36,9 +36,6 @@ enum WorkspaceHandlers {
         for id: ActionID in ["saveLayoutTemplate", "palette.layout.open", "manageLayouts"] {
             registry.bindUnavailable([id], ActionFailure.needsDaemonCapability("layout-templates-v1"))
         }
-        for id: ActionID in ["reconnectWorkspace", "disconnectWorkspace", "copyWorkspaceSSHError"] {
-            registry.bindUnavailable([id], ActionFailure.needsDaemonCapability("remote-workspaces-v1"))
-        }
     }
 
     /// Open All Workspace PR Links: each web link of the workspace's status
