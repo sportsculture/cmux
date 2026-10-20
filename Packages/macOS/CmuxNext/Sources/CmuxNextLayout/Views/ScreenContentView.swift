@@ -33,6 +33,14 @@ final class ScreenContentView: NSView {
     var scrollRidesFrames = false
     /// A close waits for `syncScroll` to place its camera, then takes its first frame (`leadIfPending`).
     var leadsFrame = false
+    /// A close's neighbours spring into its space: their terminals keep their grids until they
+    /// land (`LayoutViewContext.closingScreens`, the PTY resizes once at rest).
+    var closing = false {
+        didSet {
+            guard closing != oldValue else { return }
+            if closing { context.closingScreens.insert(screenID) } else { context.closingScreens.remove(screenID) }
+        }
+    }
     var motionState: ScreenPaneMotionState
     /// A divider released with this pointer velocity (pt/s along its axis): the next layout's
     /// spring starts from it (`SplitMotion.seed`).
@@ -259,12 +267,14 @@ final class ScreenContentView: NSView {
         // A close's neighbours start covering the closed pane's space in the frame it leaves:
         // no frame shows the hole before they move (`leadIfPending`, after `syncScroll`).
         leadsFrame = departing && animateFrames && !covering
+        if departing && animateFrames && !covering { closing = true }
         reconcileDock()
         // The scroll follows in `syncScroll`, which the root calls with the
         // focus after every update (ColumnScrollState.reduce).
         applyPresentation()
         let moving = animate && hasMotion
         if !moving { releaseCovered() }
+        if !(moving && closing) { closing = false }
         return moving
     }
 
@@ -307,6 +317,7 @@ final class ScreenContentView: NSView {
     func tearDown() {
         // A drag on a screen that goes away gets no release either.
         endDrag()
+        closing = false
         for pane in paneFrames.keys where !context.livePanes.contains(pane) {
             context.release(pane)
         }
