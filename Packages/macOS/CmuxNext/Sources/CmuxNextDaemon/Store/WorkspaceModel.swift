@@ -28,6 +28,9 @@ public final class WorkspaceModel: Identifiable {
     /// Status line, progress, and newest log line hooks and the CLI report
     /// (`workspace_status.*`); from the daemon's state resources.
     public internal(set) var status: WorkspaceStatus?
+    /// The checklist, in list order (`workspace_checklist.*`, `workspace-checklist-v1`); from the
+    /// daemon's state resources. Empty without items or on a daemon that keeps none.
+    public internal(set) var checklist: [WorkspaceChecklistItem] = []
     /// Screen groups come from the daemon's state resources.
     @ObservationIgnored var screenGroupsFromState = false
     /// Listed in the sidebar's Pinned section (`workspace-pin-v1`).
@@ -114,10 +117,12 @@ public final class WorkspaceModel: Identifiable {
     }
 
     /// Lays the daemon's workspace state over the record.
-    func applyState(ephemeral: Bool, agentFolder: String? = nil, status: WorkspaceStatus?, screenGroups groups: [ScreenGroupSnapshot]?) {
+    func applyState(ephemeral: Bool, agentFolder: String? = nil, status: WorkspaceStatus?,
+                    checklist: [WorkspaceChecklistItem] = [], screenGroups groups: [ScreenGroupSnapshot]?) {
         if self.ephemeral != ephemeral { self.ephemeral = ephemeral }
         if self.agentFolder != agentFolder { self.agentFolder = agentFolder }
         if self.status != status { self.status = status }
+        if self.checklist != checklist { self.checklist = checklist }
         screenGroupsFromState = groups != nil
         if let groups, screenGroups != groups { screenGroups = groups }
     }
