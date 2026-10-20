@@ -42,7 +42,7 @@ public nonisolated enum ActionKeyTier: Int, Comparable, CaseIterable, Sendable {
 
     /// Navigation actions that need a content context to be available
     /// (Cmd-L needs a selected browser tab) but still beat text fields.
-    static let navigationActions: Set<ActionID> = ["focusBrowserAddressBar"]
+    static let navigationActions: Set<ActionID> = ["focusBrowserAddressBar", "browser.focusSearch"]
 
     /// Context facts that mean "this action acts on focused content".
     static let contentContexts: ActionContext = [
