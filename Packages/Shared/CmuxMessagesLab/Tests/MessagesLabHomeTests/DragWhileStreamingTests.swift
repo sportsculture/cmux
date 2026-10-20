@@ -116,6 +116,17 @@ import UniformTypeIdentifiers
         window.contentView = view
         view.layoutSubtreeIfNeeded()
         let projection = view.projection
+        // The display frame: work the view schedules for the next frame (one streamed-text commit per
+        // frame, HomeStreamPacer) runs at the start of each loop step (an offscreen window's link may not fire).
+        var pending: [() -> Void] = []
+        view.controller.nextFrame = { pending.append($0) }
+        func frameStart() {
+            while !pending.isEmpty {
+                let w = pending
+                pending.removeAll()
+                for f in w { f() }
+            }
+        }
         let field = try #require(view.controller.demo?.compose.textView.view)
 
         // The host's type check (Home's intake reads the drag's types and file URLs, a round trip to
@@ -198,6 +209,7 @@ import UniformTypeIdentifiers
             let a0 = CACurrentMediaTime()
             projection.refreshAttachments()
             attachMs.append(Self.ms(a0))
+            frameStart()
             MessagesWindowView.commitLog = []
             let f0 = CACurrentMediaTime()
             store.drafts[Self.conversation] = draft

@@ -93,6 +93,8 @@ final class HomeProjection: @preconcurrency ChatIntents {
     var pendingReveal: MessageID?
     /// Tree threads: permalink paging, the thread header, Copy Link (HomeProjection+ThreadHeader.swift).
     let tree = HomeTreeState()
+    /// One streamed-text commit per display frame (HomeStreamPacer).
+    let streamPacer = HomeStreamPacer()
     /// Rebuilds and applied (changed) updates, for tests.
     private(set) var rebuilds = 0
     private(set) var appliedUpdates = 0
@@ -166,8 +168,12 @@ final class HomeProjection: @preconcurrency ChatIntents {
             return
         }
         let typingChanged = Set(store.state.ui.typing) != Set(typing.filter { $0 != me }.map(\.rawValue))
-        guard items != shown || summary != shownSummary || typingChanged || newHasOlder != hasOlder
-                || core.streamDiffers(draft) else { return }
+        // Only the running reply's text changed (a token): at most one such commit per display frame,
+        // never ahead of a keystroke (HomeStreamPacer; home-streaming-perf-DESIGN.md).
+        let streamOnly = items == shown && summary == shownSummary && !typingChanged && newHasOlder == hasOlder
+        guard !streamOnly || core.streamDiffers(draft) else { return }
+        if streamOnly, !streamPacer.admit(inputFrame: controller.inKeystrokeFrame, nextFrame: controller.nextFrame,
+                                          refresh: { [weak self] in if let self, !self.stopped { self.refresh() } }) { return }
         appliedUpdates += 1
         if newHasOlder != hasOlder { olderRequested = false }
         hasOlder = newHasOlder
@@ -204,9 +210,12 @@ final class HomeProjection: @preconcurrency ChatIntents {
             if diff.rebuild { rebuild() }
             for a in core.typing(store.state, wanted: typing) { controller.dispatch(a) }
         }
+        // A token moves rows (the inline videos follow) and changes nothing else this side tracks:
+        // no attachment, title, summary, read cursor or older page work per token.
+        video.place()
+        if streamOnly { return }
         if titleChanged { applyHeader() }
         refreshAttachments()
-        video.place()
         if summaryChanged { onSummaryChange(summary) }
         onRowsChange()
         askForOlderIfNeeded()
