@@ -76,4 +76,8 @@ if [ -n "$app" ]; then
   sleep 5
 fi
 
-"$build/ax-tour" --bundle-id "$bundle_id" --out "$out" ${pass[@]+"${pass[@]}"}
+# On the GUI build host the job has no Screen Recording grant of its own; its capture helper has.
+capture=()
+if [ -n "${NX_CAPTURE:-}" ]; then capture=(--capture-helper "$NX_CAPTURE"); fi
+
+"$build/ax-tour" --bundle-id "$bundle_id" --out "$out" ${capture[@]+"${capture[@]}"} ${pass[@]+"${pass[@]}"}

@@ -35,6 +35,9 @@ struct Options {
     var steps: [String] = []
     var dump = false
     var settle: TimeInterval = 8
+    /// A capture helper run as `bash HELPER shot --pid PID --with-popups --out FILE` (the GUI build
+    /// host's `$NX_CAPTURE`, whose grant the tour process lacks); nil uses ScreenCaptureKit.
+    var captureHelper: String?
 }
 
 func fail(_ message: String, code: Int32) -> Never {
@@ -52,6 +55,7 @@ func parse() -> Options {
         case "--steps": options.steps = (args.next() ?? "").split(separator: ",").map(String.init)
         case "--settle": options.settle = TimeInterval(args.next() ?? "") ?? options.settle
         case "--dump": options.dump = true
+        case "--capture-helper": options.captureHelper = args.next()
         default: fail("unknown argument \(arg)", code: 2)
         }
     }
@@ -118,10 +122,15 @@ final class AX {
 
     func value(_ element: AXUIElement) -> Int? { (attr(element, kAXValueAttribute) as? NSNumber)?.intValue }
 
-    /// A printable line for one element (the `--dump` output).
+    /// A printable line for one element (the `--dump` output): role, subrole, identifier,
+    /// description, title, enabled, and the actions it accepts.
     func describe(_ element: AXUIElement) -> String {
-        [kAXRoleAttribute, kAXSubroleAttribute, kAXIdentifierAttribute, kAXDescriptionAttribute, kAXTitleAttribute]
-            .map { string(element, $0) }.joined(separator: " | ")
+        var names: CFArray?
+        AXUIElementCopyActionNames(element, &names)
+        let actions = (names as? [String] ?? []).joined(separator: ",")
+        let enabled = (attr(element, kAXEnabledAttribute) as? Bool).map { $0 ? "enabled" : "disabled" } ?? "-"
+        return ([kAXRoleAttribute, kAXSubroleAttribute, kAXIdentifierAttribute, kAXDescriptionAttribute, kAXTitleAttribute]
+            .map { string(element, $0) } + [enabled, actions]).joined(separator: " | ")
     }
 }
 
@@ -138,7 +147,15 @@ func waitFor(_ timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
 
 // MARK: Screenshots of the app's own windows
 
-func screenshot(pid: pid_t, to url: URL) -> String? {
+func screenshot(pid: pid_t, to url: URL, helper: String?) -> String? {
+    if let helper {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [helper, "shot", "--pid", String(pid), "--with-popups", "--out", url.path]
+        do { try process.run() } catch { return "capture helper: \(error.localizedDescription)" }
+        process.waitUntilExit()
+        return process.terminationStatus == 0 ? nil : "capture helper exited \(process.terminationStatus)"
+    }
     let semaphore = DispatchSemaphore(value: 0)
     var problem: String?
     Task {
@@ -180,10 +197,10 @@ final class Tour {
     let options: Options
     var results: [StepResult] = []
     // What the tour created, so the closing steps remove only that.
-    var startWorkspaces = Set<String>()
     var startTabs = Set<String>()
     var startDividers = 0
     var newTabID: String?
+    var newWorkspaceID: String?
 
     init(ax: AX, options: Options) {
         self.ax = ax
@@ -218,7 +235,7 @@ final class Tour {
     func record(_ step: String, _ ok: Bool, _ detail: String) {
         let shots = options.out.appendingPathComponent("shots")
         let shot = shots.appendingPathComponent(String(format: "%02d-%@.png", results.count + 1, step))
-        let problem = screenshot(pid: ax.pid, to: shot)
+        let problem = screenshot(pid: ax.pid, to: shot, helper: options.captureHelper)
         results.append(StepResult(step: step, ok: ok, detail: problem.map { "\(detail); screenshot: \($0)" } ?? detail,
                                   screenshot: problem == nil ? shot.lastPathComponent : nil))
         print("\(ok ? "ok  " : "FAIL") \(step): \(detail)")
@@ -231,7 +248,8 @@ final class Tour {
             let before = workspaces
             if let problem = pressID("cmux.sidebar.newWorkspace") { return record(step, false, problem) }
             let ok = waitFor(settle) { workspaces.subtracting(before).count == 1 }
-            record(step, ok, ok ? "new row \(workspaces.subtracting(before).first ?? "")" : "no new cmux.sidebar.workspace.* row")
+            newWorkspaceID = ok ? workspaces.subtracting(before).first : nil
+            record(step, ok, ok ? "new row \(newWorkspaceID ?? "")" : "no new cmux.sidebar.workspace.* row")
         case "new-tab":
             let before = tabs
             if let problem = pressID("cmux.tabs.newTab") { return record(step, false, problem) }
@@ -286,8 +304,8 @@ final class Tour {
             let ok = waitFor(settle) { !tabs.contains(id) }
             record(step, ok, ok ? "closed \(id)" : "\(id) still open")
         case "close-workspace":
-            let created = workspaces.subtracting(startWorkspaces)
-            guard created.count == 1, let id = created.first else { return record(step, false, "created workspaces: \(created.sorted())") }
+            // Only the workspace new-workspace made: a row that appeared some other way is not the tour's.
+            guard let id = newWorkspaceID else { return record(step, false, "the tour made no workspace") }
             guard let row = element(id) else { return record(step, false, "no \(id)") }
             ax.press(row) // selects it, so Close Workspace acts on the tour's workspace
             if let problem = pressMenu("closeWorkspace") { return record(step, false, problem) }
@@ -315,11 +333,16 @@ guard running.count == 1, let target = running.first, target.bundleIdentifier ==
 let ax = AX(pid: target.processIdentifier)
 if options.dump {
     for element in ax.elements() { print(ax.describe(element)) }
+    if let bar = ax.attr(ax.app, kAXMenuBarAttribute) {
+        // swiftlint:disable:next force_cast
+        for element in ax.elements(under: [bar as! AXUIElement]) where !ax.string(element, kAXIdentifierAttribute).isEmpty {
+            print("menu | " + ax.describe(element))
+        }
+    }
     exit(0)
 }
 try? FileManager.default.createDirectory(at: options.out.appendingPathComponent("shots"), withIntermediateDirectories: true)
 let tour = Tour(ax: ax, options: options)
-tour.startWorkspaces = tour.workspaces
 tour.startTabs = tour.tabs
 tour.startDividers = tour.dividers
 let all = ["new-workspace", "new-tab", "split-pane", "switch-tab", "palette", "settings", "close-split", "close-tab", "close-workspace"]
