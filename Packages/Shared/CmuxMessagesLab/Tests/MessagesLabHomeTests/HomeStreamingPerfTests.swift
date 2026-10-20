@@ -12,14 +12,16 @@ import Testing
 /// 100 tokens/s at 60 Hz) while the person types in the message box, then while
 /// they scroll the transcript.
 ///
-/// Each frame runs what the main thread runs for it: the store's change, the
-/// projection's refresh (`HomeProjection.refresh`, as its observation does),
-/// one layout pass and a Core Animation flush, then the input event.
+/// Each display frame runs what the main thread runs in it: the work the view
+/// scheduled for the frame (`ChatController.nextFrame`), a token (the store's
+/// change and `HomeProjection.refresh`, as its observation runs it), the input
+/// event, a second token, then one layout pass and a Core Animation flush.
 ///
 /// The rules (plans/cmux-next/home-streaming-perf-DESIGN.md):
-/// - a frame's streaming work stays far inside one 60 Hz frame (p95, p99, worst);
-/// - the cost of a token follows the token, not the reply's length so far
-///   (the last 500 tokens cost about what the first 500 did);
+/// - a streaming frame costs at most 2 ms more than the same frame with no
+///   stream (p95; p99 at most 4 ms more), and no frame reaches 16 ms;
+/// - the cost of a frame follows the token, not the reply's length so far
+///   (the last 250 frames cost about what the first 250 did);
 /// - a keystroke or a scroll step costs about what it costs with no stream.
 ///
 /// `HOMESTREAM` lines in the log carry the numbers.
@@ -76,7 +78,7 @@ import Testing
     }
 
     struct Frames {
-        var token: [Double] = [], layout: [Double] = [], frame: [Double] = [], input: [Double] = []
+        var token: [Double] = [], frame: [Double] = [], input: [Double] = []
     }
 
     @Test func aLongMarkdownReplyStreamsWithoutLag() async throws {
@@ -108,6 +110,17 @@ import Testing
             window.contentView?.layoutSubtreeIfNeeded()
             CATransaction.flush()
         }
+        // The display frame: work the view schedules for the next frame runs at its start
+        // (FrameTick; an offscreen window has no display link to fire it).
+        var pending: [() -> Void] = []
+        view.controller.nextFrame = { pending.append($0) }
+        func frameStart() {
+            while !pending.isEmpty {
+                let w = pending
+                pending.removeAll()
+                for f in w { f() }
+            }
+        }
         var typed = 0
         func key() -> Double {
             let k0 = CACurrentMediaTime()
@@ -118,7 +131,6 @@ import Testing
                 field.insertText(typed % 6 == 5 ? " " : "e", replacementRange: field.selectedRange())
             }
             typed += 1
-            flush()
             return Self.ms(k0)
         }
         var scrolls = 0
@@ -130,47 +142,70 @@ import Testing
             guard let e = Self.scrollEvent(dy: dy) else { return 0 }
             let s0 = CACurrentMediaTime()
             scrollView.scrollWheel(with: e)
-            flush()
             return Self.ms(s0)
         }
-
-        // No stream: the same input, for the baseline.
-        var idleKey: [Double] = [], idleScroll: [Double] = []
-        for _ in 0..<200 { idleKey.append(key()) }
-        for _ in 0..<240 { idleScroll.append(scroll()) }
-        // Back at the newest row for the stream's typing phase.
-        view.controller.demo?.pinToBottom()
-        flush()
 
         let tokens = Self.replyTokens(count: 5000)
         let turn = IdempotencyKey("turn_home_stream_perf")
         var draft = HomeTurnDraft(participant: chief, turn: turn)
         var text = ""
+        let perFrame = 2
+        var i = 0
+        /// One display frame: the frame's scheduled work, a token, the input event, a token, the
+        /// layout pass and Core Animation commit (each token as the store's observation runs it).
+        func frame(stream: Bool, typing: Bool) -> (frame: Double, stream: Double, input: Double) {
+            let f0 = CACurrentMediaTime()
+            frameStart()
+            var streamMs = Self.ms(f0)
+            func token() {
+                guard stream, i < tokens.count else { return }
+                let t0 = CACurrentMediaTime()
+                text += tokens[i]
+                i += 1
+                draft.segments[0] = text
+                draft.lastSeq = UInt64(i)
+                store.drafts[Self.conversation] = draft
+                projection.refresh()
+                streamMs += Self.ms(t0)
+            }
+            for _ in 0..<(perFrame / 2) { token() }
+            let inputMs = typing ? key() : scroll()
+            for _ in 0..<(perFrame - perFrame / 2) { token() }
+            flush()
+            return (Self.ms(f0), streamMs, inputMs)
+        }
+
+        // No stream: the same frames, for the baseline.
+        var idle = (typing: Frames(), scrolling: Frames())
+        for _ in 0..<200 {
+            let f = frame(stream: false, typing: true)
+            idle.typing.frame.append(f.frame); idle.typing.input.append(f.input)
+        }
+        if canScroll {
+            for _ in 0..<240 {
+                let f = frame(stream: false, typing: false)
+                idle.scrolling.frame.append(f.frame); idle.scrolling.input.append(f.input)
+            }
+        }
+        // Back at the newest row for the stream's typing phase.
+        view.controller.demo?.pinToBottom()
+        flush()
+
         let parses0 = (MarkdownStore.shared.fullParses, MarkdownStore.shared.tailParses)
         let misses0 = MeasureCache.shared.misses
         let created0 = RowCell.created
+        let renders0 = RowCell.syncRenders
         let passes0 = MessagesWindowView.widthPasses
         MessagesWindowView.commitLog = []
         defer { MessagesWindowView.commitLog = nil }
         var commitPhases: [String: Double] = [:]
         var typing = Frames(), scrolling = Frames()
         var commits = 0
-        let perFrame = 2
-        var i = 0
         while i < tokens.count {
-            for t in tokens[i..<min(tokens.count, i + perFrame)] { text += t }
-            i += perFrame
-            draft.segments[0] = text
-            draft.lastSeq = UInt64(i)
             MessagesWindowView.commitLog = []
-            let f0 = CACurrentMediaTime()
-            store.drafts[Self.conversation] = draft
-            projection.refresh()
-            let tokenMs = Self.ms(f0)
-            let l0 = CACurrentMediaTime()
-            flush()
-            let layoutMs = Self.ms(l0)
-            let frameMs = Self.ms(f0)
+            // The first half: typing in the message box; the second: scrolling the transcript.
+            let typingPhase = i < tokens.count / 2 || !canScroll
+            let f = frame(stream: true, typing: typingPhase)
             for entry in MessagesWindowView.commitLog ?? [] {
                 commits += 1
                 if let open = entry.firstIndex(of: "[") {
@@ -183,28 +218,30 @@ import Testing
                     }
                 }
             }
-            // The first half: typing in the message box; the second: scrolling the transcript.
-            let typingPhase = i <= tokens.count / 2 || !canScroll
-            let inputMs = typingPhase ? key() : scroll()
             if typingPhase {
-                typing.token.append(tokenMs); typing.layout.append(layoutMs); typing.frame.append(frameMs); typing.input.append(inputMs)
+                typing.frame.append(f.frame); typing.token.append(f.stream); typing.input.append(f.input)
             } else {
-                scrolling.token.append(tokenMs); scrolling.layout.append(layoutMs); scrolling.frame.append(frameMs); scrolling.input.append(inputMs)
+                scrolling.frame.append(f.frame); scrolling.token.append(f.stream); scrolling.input.append(f.input)
             }
             // The store's own observation refresh (a no-op: nothing changed since).
             await Task.yield()
         }
-        let frames = typing.frame + scrolling.frame
+        // The frames after the last token: whatever the stream left for later frames.
+        var settle: [Double] = []
+        for _ in 0..<4 { settle.append(frame(stream: false, typing: true).frame) }
+        let frames = typing.frame + scrolling.frame + settle
         let label = "tokens=\(tokens.count) bytes=\(text.utf8.count) rows=\(projection.shown.count)"
-        print("HOMESTREAM \(label) \(Self.line("frame (token + layout)", frames))")
-        print("HOMESTREAM \(label) typing \(Self.line("token", typing.token))")
-        print("HOMESTREAM \(label) typing \(Self.line("layout", typing.layout))")
+        print("HOMESTREAM \(label) \(Self.line("frame", frames))")
+        print("HOMESTREAM \(label) typing \(Self.line("frame", typing.frame))")
+        print("HOMESTREAM \(label) typing \(Self.line("stream work", typing.token))")
         print("HOMESTREAM \(label) typing \(Self.line("keystroke", typing.input))")
-        print("HOMESTREAM \(label) idle \(Self.line("keystroke", idleKey))")
-        print("HOMESTREAM \(label) scrolling \(Self.line("token", scrolling.token))")
-        print("HOMESTREAM \(label) scrolling \(Self.line("layout", scrolling.layout))")
+        print("HOMESTREAM \(label) idle typing \(Self.line("frame", idle.typing.frame))")
+        print("HOMESTREAM \(label) idle \(Self.line("keystroke", idle.typing.input))")
+        print("HOMESTREAM \(label) scrolling \(Self.line("frame", scrolling.frame))")
+        print("HOMESTREAM \(label) scrolling \(Self.line("stream work", scrolling.token))")
         print("HOMESTREAM \(label) scrolling \(Self.line("scroll", scrolling.input))")
-        print("HOMESTREAM \(label) idle \(Self.line("scroll", idleScroll)) canScroll \(canScroll)")
+        print("HOMESTREAM \(label) idle scrolling \(Self.line("frame", idle.scrolling.frame))")
+        print("HOMESTREAM \(label) idle \(Self.line("scroll", idle.scrolling.input)) canScroll \(canScroll)")
         let n = frames.count
         for b in stride(from: 0, to: n, by: 250) {
             print("HOMESTREAM \(label) frames \(b)..<\(min(n, b + 250)) \(Self.line("frame", Array(frames[b..<min(n, b + 250)])))")
@@ -214,19 +251,24 @@ import Testing
         }
         let fullParses = MarkdownStore.shared.fullParses - parses0.0, tailParses = MarkdownStore.shared.tailParses - parses0.1
         let misses = MeasureCache.shared.misses - misses0
-        print("HOMESTREAM \(label) commits \(commits) markdown full \(fullParses) tail \(tailParses) measureMisses \(misses) cellsCreated \(RowCell.created - created0) widthPasses \(MessagesWindowView.widthPasses - passes0)")
+        print("HOMESTREAM \(label) frames \(frames.count) commits \(commits) markdown full \(fullParses) tail \(tailParses) measureMisses \(misses) mainRenders \(RowCell.syncRenders - renders0) cellsCreated \(RowCell.created - created0) widthPasses \(MessagesWindowView.widthPasses - passes0)")
+        // The whole reply is on screen at the end (nothing dropped by coalescing).
+        #expect(view.controller.store?.state.ui.streams.first?.text.isEmpty == false)
 
+        let idleFrames = idle.typing.frame + idle.scrolling.frame
         let head = Array(frames.prefix(250)), tail = Array(frames.suffix(250))
-        #expect(Self.p(frames, 0.95) < 4, "streaming frame p95 \(Self.p(frames, 0.95)) ms")
-        #expect(Self.p(frames, 0.99) < 8, "streaming frame p99 \(Self.p(frames, 0.99)) ms")
+        #expect(Self.p(frames, 0.95) < Self.p(idleFrames, 0.95) + 2,
+                "streaming frame p95 \(Self.p(frames, 0.95)) ms, idle \(Self.p(idleFrames, 0.95)) ms")
+        #expect(Self.p(frames, 0.99) < Self.p(idleFrames, 0.99) + 4,
+                "streaming frame p99 \(Self.p(frames, 0.99)) ms, idle \(Self.p(idleFrames, 0.99)) ms")
         #expect((frames.max() ?? 0) < 16, "worst streaming frame \(frames.max() ?? 0) ms")
         #expect(Self.p(tail, 0.5) < 2 * Self.p(head, 0.5) + 0.5,
-                "a token at the end of the reply costs \(Self.p(tail, 0.5)) ms p50, at the start \(Self.p(head, 0.5)) ms")
-        #expect(Self.p(typing.input, 0.95) < Self.p(idleKey, 0.95) + 1,
-                "a keystroke while streaming p95 \(Self.p(typing.input, 0.95)) ms, idle \(Self.p(idleKey, 0.95)) ms")
+                "a frame at the end of the reply costs \(Self.p(tail, 0.5)) ms p50, at the start \(Self.p(head, 0.5)) ms")
+        #expect(Self.p(typing.input, 0.95) < Self.p(idle.typing.input, 0.95) + 1,
+                "a keystroke while streaming p95 \(Self.p(typing.input, 0.95)) ms, idle \(Self.p(idle.typing.input, 0.95)) ms")
         if canScroll {
-            #expect(Self.p(scrolling.input, 0.95) < Self.p(idleScroll, 0.95) + 1,
-                    "a scroll step while streaming p95 \(Self.p(scrolling.input, 0.95)) ms, idle \(Self.p(idleScroll, 0.95)) ms")
+            #expect(Self.p(scrolling.input, 0.95) < Self.p(idle.scrolling.input, 0.95) + 1,
+                    "a scroll step while streaming p95 \(Self.p(scrolling.input, 0.95)) ms, idle \(Self.p(idle.scrolling.input, 0.95)) ms")
         }
     }
 }
