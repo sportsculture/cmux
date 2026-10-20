@@ -57,14 +57,18 @@ import Testing
         #expect(try hit(atX: edge + offset, in: root, window: window) === handle, "a click \(offset) pt from the edge")
     }
 
-    /// The resize cursor (cursor rects) and the hover line (tracking areas) use the visible rect:
-    /// all of the band must be visible, not clipped by the sidebar.
+    /// The resize cursor (cursor rects) and the hover line (tracking areas) reach only the part of
+    /// the band inside its superview: all of the band must be there, not clipped by the sidebar.
     @Test func theWholeBandShowsTheResizeCursor() throws {
         let (window, root) = root()
         defer { window.close() }
         let handle = try handle(in: root)
         #expect(handle.bounds.width >= 8, "the band is \(handle.bounds.width) pt")
-        #expect(handle.visibleRect.width == handle.bounds.width, "visible \(handle.visibleRect.width) of \(handle.bounds.width) pt")
+        // A view draws, tracks and sets cursors only inside its superview's bounds; an offscreen
+        // test window gives no reliable visibleRect (the fleet reported 1000 pt for a 10 pt band).
+        let parent = try #require(handle.superview)
+        #expect(parent.bounds.contains(handle.frame), "band \(handle.frame) inside \(parent.bounds)")
+        #expect(!(parent is SidebarContainerView), "the band is not clipped by the sidebar container")
     }
 
     @Test func theBandStaysThin() throws {
