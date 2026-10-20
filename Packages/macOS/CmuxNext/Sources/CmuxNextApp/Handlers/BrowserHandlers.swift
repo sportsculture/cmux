@@ -15,6 +15,7 @@ enum BrowserHandlers {
         BrowserDeviceHandlers.bind(into: registry, context: context)
         bindSplits(into: registry, context: context)
         bindLinkHints(into: registry, context: context)
+        BrowserEnabledToggle.bind(into: registry, context: context)
         bindUnavailable(registry)
     }
 
@@ -107,6 +108,7 @@ enum BrowserHandlers {
                              byPerson: Bool, context: AppActionContext) throws {
         let handle = pane.pane.handle, model = pane.pane
         let browserTabs = context.services.cache.browserTabs
+        if let refusal = browserTabs.refusal(for: url) { throw ActionFailure(message: refusal) }
         switch context.services.toolSplit(from: model, edge: direction == .right ? .right : .bottom, byPerson: byPerson) {
         case .split:
             break
@@ -190,7 +192,6 @@ enum BrowserHandlers {
         unavailable(["toggleReactGrab"], MiscHandlerStrings.reactGrab)
         unavailable(["palette.browserToggleOmnibar"], MiscHandlerStrings.omnibarToggle)
         unavailable(["palette.browserClearHistory"], MiscHandlerStrings.browserHistory)
-        unavailable(["palette.enableBrowser", "palette.disableBrowser"], MiscHandlerStrings.browserToggle)
         unavailable(["browserScreenshotSection"], MiscHandlerStrings.sectionScreenshot)
         unavailable(["palette.vscodeServeWebStop", "palette.vscodeServeWebRestart"], MiscHandlerStrings.vscodeServer)
     }

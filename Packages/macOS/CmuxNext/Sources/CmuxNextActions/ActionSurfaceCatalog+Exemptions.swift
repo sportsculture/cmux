@@ -86,7 +86,7 @@ nonisolated extension ActionSurfaceCatalog {
         "browserProfile.openLink", "browserProfile.setWorkspaceDefault", "browserProfile.clearWorkspaceDefault",
         "browserProfile.setSpaceDefault", "browserProfile.clearSpaceDefault", "browserProfile.moveTab",
         "browserProfile.duplicateTab", "palette.toggleMatchTerminalBackground", "palette.enableMinimalMode",
-        "palette.disableMinimalMode", "markAllNotificationsRead", "clearAllNotifications",
+        "palette.disableMinimalMode", "palette.enableBrowser", "palette.disableBrowser", "markAllNotificationsRead", "clearAllNotifications",
         "notifications.toggleWorkspaceMute", "notifications.toggleBanners", "notifications.dismissal.keystroke",
         "notifications.dismissal.focus", "notifications.dismissal.click", "notifications.dismissal.explicit",
         "notifications.dismissal.timeout", "notifications.dismissal.never", "palette.newAgentChat", "palette.quickAgentChat",
@@ -144,8 +144,6 @@ nonisolated extension ActionSurfaceCatalog {
     static let cliExemptionsByReason: [SurfaceExemption: [ActionID]] = [
         .ownerVerb: ownerVerbActions,
         .unimplemented: [
-            "palette.disableBrowser",
-            "palette.enableBrowser",
             "disconnectRemoteTab",
             "toggleTabAudioMute",
             "agentChat.toggleNotificationMute",
@@ -307,6 +305,8 @@ nonisolated extension ActionSurfaceCatalog {
             "notifications.toggleBanners",
             "palette.enableMinimalMode",
             "palette.disableMinimalMode",
+            "palette.enableBrowser",
+            "palette.disableBrowser",
             "palette.toggleMatchTerminalBackground",
             "layout.toggleStripScrollbar",
             "keepMacAwake",
