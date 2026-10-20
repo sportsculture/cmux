@@ -442,6 +442,11 @@ final class TabCell {
             removeCloseLayers()
         }
         closeButtonRect = closeRect
+        // Agents press the x by its place: a closable tab exposes it where hovering shows it.
+        let side = m.closeButtonSize
+        updateCloseAccessibility(closeRect ?? (item.isClosable && !item.isPinned && visibility != .hidden
+            ? CGRect(x: pixel(bounds.width - m.contentTrailingInset - side), y: pixel(midY - side / 2), width: side, height: side)
+            : nil))
 
         if visibility.showsTitle {
             // The title always spans to the trailing inset, so it never moves

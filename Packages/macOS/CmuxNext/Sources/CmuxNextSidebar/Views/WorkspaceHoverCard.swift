@@ -428,6 +428,7 @@ final class WorkspaceHoverCardView: NSView {
 
     private func addFactRow() {
         let icon = NSImageView()
+        icon.setAccessibilityElement(false) // the fact's text says it
         let label = ChromeLabel(labelWithString: "")
         label.font = Typography.body
         label.lineBreakMode = .byTruncatingMiddle
@@ -478,6 +479,8 @@ extension WorkspaceHoverCardView {
 /// between its ascender and descender), so it stays with the name's first line when the name wraps.
 private final class LineIconView: NSImageView {
     weak var line: ChromeLabel?
+    /// Decorative: the name beside it says what it marks.
+    override func isAccessibilityElement() -> Bool { false }
     /// The icon's height (its constraint), not `bounds`, which is zero before the first layout.
     var side: CGFloat = 0
 

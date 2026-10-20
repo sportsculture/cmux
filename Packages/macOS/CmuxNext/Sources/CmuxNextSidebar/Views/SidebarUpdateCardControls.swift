@@ -212,6 +212,7 @@ final class SidebarUpdateCheckbox: NSView {
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         [mark, label].forEach(addSubview)
+        mark.setAccessibilityElement(false) // the checkbox's AXValue says it
         setAccessibilityElement(true)
         setAccessibilityRole(.checkBox)
     }

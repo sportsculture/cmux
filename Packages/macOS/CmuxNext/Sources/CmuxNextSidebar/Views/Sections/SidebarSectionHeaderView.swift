@@ -22,6 +22,7 @@ final class SidebarSectionHeaderView: NSView {
         name.maximumNumberOfLines = 1
         chevron.alphaValue = 0
         [name, chevron].forEach(addSubview)
+        chevron.setAccessibilityElement(false) // AXExpanded says what it draws
         setAccessibilityElement(true)
         setAccessibilityRole(.disclosureTriangle)
         pointerHover = PointerHover(self) { [weak self] hovering in self?.isHovered = hovering }
