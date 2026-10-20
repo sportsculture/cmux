@@ -270,6 +270,7 @@
         "CmuxNextDiff",
         "CmuxNextFeed",
         "CmuxNextFileGrid",
+        "CmuxNextFiles",
         "CmuxNextFloating",
         "CmuxNextFocus",
         "CmuxNextFocusUI",
@@ -1062,7 +1063,8 @@
       "kind": "regular",
       "path": "Packages/macOS/CmuxNext/Sources/CmuxNextScreenshots",
       "targets": [
-        "CmuxNextFileGrid"
+        "CmuxNextFileGrid",
+        "CmuxNextFiles"
       ],
       "packages": []
     },
@@ -1071,6 +1073,7 @@
       "path": "Packages/macOS/CmuxNext/Tests/CmuxNextScreenshotsTests",
       "targets": [
         "CmuxNextFileGrid",
+        "CmuxNextFiles",
         "CmuxNextScreenshots"
       ],
       "packages": [],
