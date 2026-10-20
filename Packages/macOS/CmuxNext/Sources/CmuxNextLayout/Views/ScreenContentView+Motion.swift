@@ -12,7 +12,10 @@ extension ScreenContentView {
     /// true while anything still moves. A screen at rest (a drag frame that
     /// moved nothing, a still pointer) does no work.
     func step(_ dt: Double, policy: MotionPolicy = Motion.policy) -> Bool {
-        guard hasMotion || reportScrollOnSettle else { return false }
+        guard hasMotion || reportScrollOnSettle else {
+            scrollRidesFrames = false
+            return false
+        }
         var moving = false
         let frameSpring = policy.spring(motionState.frameSpring), appear = policy.spring(.appear)
         for key in Array(paneFrames.keys) {
@@ -23,11 +26,14 @@ extension ScreenContentView {
         for key in Array(dividerFrames.keys) {
             if dividerFrames[key]?.advance(dt, parameters: frameSpring) == true { moving = true }
         }
-        if stepRows(dt, policy: policy) { moving = true }
+        // A close's camera shift (strip and rows) stays on the close spring until it rests, not only while
+        // the panes move: closing the last column moves no pane, and a switch to the scroll spring
+        // when the panes land changes the curve mid-motion (Lawrence 2026-10-20).
+        let cameraSpring = scrollRidesFrames ? frameSpring : policy.spring(.scroll)
+        if stepRows(dt, spring: cameraSpring) { moving = true }
         if MotionTrace.isEnabled { MotionTrace.sample("layout.travel", Double(travelLeft)) }
-        if scrollRidesFrames, !paneFrames.values.contains(where: { $0.rect != $0.targetRect }) { scrollRidesFrames = false }
         if !isUserScrolling {
-            if scroll.advance(dt, parameters: scrollRidesFrames ? frameSpring : policy.spring(.scroll), epsilon: 0.25) {
+            if scroll.advance(dt, parameters: cameraSpring, epsilon: 0.25) {
                 moving = true
                 scrollbarFlash = true
             } else if reportScrollOnSettle {
@@ -35,21 +41,26 @@ extension ScreenContentView {
                 reportLeadingColumn()
             }
         }
+        if !moving { scrollRidesFrames = false }
         applyPresentation()
         // A zoom that landed in this frame lets go of the panes it covered.
         releaseCovered()
         return moving
     }
-    /// A close's first frame of the pane, divider and (riding them) camera springs, in the change
-    /// that starts them, once `syncScroll` placed the camera: the frame that drops the closed pane
-    /// already shows its neighbours covering some of its space.
+    /// A close's first frame of the pane, divider and (riding them) camera springs, the strip's and
+    /// each row column's, in the change that starts them, once `syncScroll` placed the camera: the
+    /// frame that drops the closed pane already shows its neighbours covering some of its space,
+    /// and the shift the close needs (the last column or row closed) already under way.
     func leadIfPending(_ dt: Double = 1.0 / 120, policy: MotionPolicy = Motion.policy) {
         guard leadsFrame else { return }
         leadsFrame = false
         let frameSpring = policy.spring(motionState.frameSpring), appear = policy.spring(.appear)
         for key in Array(paneFrames.keys) { _ = paneFrames[key]?.advance(dt, parameters: frameSpring, alphaParameters: appear) }
         for key in Array(dividerFrames.keys) { _ = dividerFrames[key]?.advance(dt, parameters: frameSpring) }
-        if scrollRidesFrames, !isUserScrolling { _ = scroll.advance(dt, parameters: frameSpring, epsilon: 0.25) }
+        if scrollRidesFrames {
+            if !isUserScrolling { _ = scroll.advance(dt, parameters: frameSpring, epsilon: 0.25) }
+            _ = stepRows(dt, spring: frameSpring)
+        }
         applyPresentation()
     }
 
