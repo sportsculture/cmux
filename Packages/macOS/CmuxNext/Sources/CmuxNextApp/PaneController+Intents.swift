@@ -18,10 +18,11 @@ extension PaneController {
         case .close(let id, _):
             CloseUndoToasts.close(in: self, [id])
         case .closeOthers(let keep):
-            CloseUndoToasts.close(in: self, stripModel.closedByCloseOthers(keeping: keep))
+            CloseUndoToasts.close(in: self, stripModel.orderedTabs.filter { $0.id != keep && !$0.isPinned }.map(\.id))
         case .closeToRight(let id):
-            // Pinned tabs after `id` stay, as in Chrome.
-            CloseUndoToasts.close(in: self, stripModel.closedByCloseToRight(of: id))
+            let ids = orderedIDs
+            guard let index = ids.firstIndex(of: id) else { return }
+            CloseUndoToasts.close(in: self, Array(ids[(index + 1)...]))
         case .reorder(let id, _, let to):
             StripOrder.reorder(id, to: to, in: self)
         case .newTab(_, let opensWorkspace, let sameKind):
@@ -265,8 +266,7 @@ extension PaneController {
         let kept = Set(TabPromotion.menuRemovals(kind: workspaceKind))
         guard let tab, tab.kind == .browser else {
             // Hibernation discards a page; a terminal has none (Restart only once its shell ended).
-            // Reload and Mute are a page's rows (Chrome's Reload, Mute Site).
-            let entries = ContextMenuCatalog.shared.entries(for: .tab, removing: kept.union(["hibernateTab", "wakeTab", "toggleTabAudioMute", "reloadTab"]).union(TabRestart.hiddenMenuItems(tab)).union(CloudMove.hiddenMenuItems(tab)))
+            let entries = ContextMenuCatalog.shared.entries(for: .tab, removing: kept.union(["hibernateTab", "wakeTab", "toggleTabAudioMute"]).union(TabRestart.hiddenMenuItems(tab)).union(CloudMove.hiddenMenuItems(tab)))
             return registry.makeContextMenu(for: .tab, target: target, entries: entries)
         }
         // A browser tab offers the engine it is not on.

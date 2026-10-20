@@ -35,6 +35,7 @@ extension TabStripView {
         updateOcclusion()
         if let selected { reveal(selected, animated: !reduceMotion) }
         lastSelectedID = selected
+        overflowHints.update()
         refreshHoverCard()
     }
 
@@ -177,6 +178,7 @@ extension TabStripView {
         cell.accessibility.setAccessibilityParent(self)
         cell.accessibility.onPress = { [weak self] in self?.model.send(.select(id)) }
         cell.accessibility.onClose = { [weak self] in self?.close(id, source: .accessibility) }
+        cell.accessibility.closeButton.onPress = { [weak self] in self?.close(id, source: .accessibility) }
         let element = ObjectIdentifier(cell.accessibility)
         cell.accessibility.onFocus = { [weak self] focused in self?.noteAccessibilityFocus(element, focused) }
         tabsLayer(isPinned: item.isPinned)?.addSublayer(cell.layer)

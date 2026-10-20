@@ -98,14 +98,7 @@ extension SidebarListViewComponents {
         guard displayed.row(at: point.y)?.key == press.key else { return }
         switch press.key {
         case .workspace:
-            // Mouse-down drew the click on the old and new rows (`patchSelection`) and moved no row: no layout here
-            // (u2455: every click laid the whole list out and configured every row). Only a deferred click (one row
-            // of a multi-selection, no drag) changes the selection now, the same way.
-            guard let id = press.deferredClick else { return }
-            let (oldItem, oldSelection) = (model.selectedItem, model.selection)
-            model.click(id)
-            if !patchSelection(from: oldItem, oldSelection: oldSelection) { reload(animated: true) }
-            return
+            if let id = press.deferredClick { model.click(id) }
         case .tab:
             break
         case let .group(group):

@@ -21,15 +21,12 @@ final class AppOnboardingServices: OnboardingServices {
         self.owner = owner
     }
 
-    /// Folder grants (Debug Settings `browserImport.folderGrant`).
-    private let folderAccess = BrowserFolderAccess()
-
-    func detectBrowsers() async -> [BrowserSource] { await folderAccess.detect() }
-    func browsersAwaitingAccess() async -> [ImportBrowser] { await folderAccess.awaiting() }
-    func accessFolder(for browser: ImportBrowser) -> URL? { folderAccess.folder(browser) }
-    func requestFolderAccess(for browser: ImportBrowser) async -> Bool { await folderAccess.request(browser) }
-
-    func importPasswordsFromCSV(into profile: String?) { try? PasswordCSVFiles(services: services).chooseImport(profile: profile ?? BrowserProfileRecord.defaultID) }
+    func detectBrowsers() async -> [BrowserSource] {
+        await Task.detached {
+            let environment = ImportEnvironment.live { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+            return BrowserSourceDetector(environment: environment).detect()
+        }.value
+    }
 
     func runImport(_ plan: ImportPlan, progress: @escaping @MainActor (ImportProgress) -> Void) async throws -> ImportSummary {
         let cache = services.cache
@@ -54,8 +51,6 @@ final class AppOnboardingServices: OnboardingServices {
         let importer = BrowserImporter(provisioning: AppBrowserProfileProvisioning(profiles: services.browserProfiles), store: owner.importStore,
                                        cookies: cookies, passwords: passwords)
         let summary: ImportSummary
-        let endAccess = folderAccess.access(plan)
-        defer { endAccess() }
         do {
             summary = try await importer.run(plan, into: destination) { step in
                 Task { @MainActor in progress(step) }
@@ -71,7 +66,9 @@ final class AppOnboardingServices: OnboardingServices {
         return summary
     }
 
-    func canImportPasswords() async -> Bool { await services.cache.cef.canImportPasswords() }
+    func canImportPasswords() async -> Bool {
+        await services.cache.cef.canImportPasswords()
+    }
 
     /// Touch ID, or the Mac's password where there is none. Only a Mac with
     /// no login password at all goes on without it; any other failure stops
@@ -86,8 +83,13 @@ final class AppOnboardingServices: OnboardingServices {
         return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
     }
 
-    func openExternal(_ url: URL) { NSWorkspace.shared.openInBackground(url) }
-    func importFromFiles(into profile: String?) { BrowserFileImport(services: services).run(profile: profile ?? BrowserProfileRecord.defaultID) }
+    func openExternal(_ url: URL) {
+        NSWorkspace.shared.openInBackground(url)
+    }
+
+    func importFromFiles(into profile: String?) {
+        BrowserFileImport(services: services).run(profile: profile ?? BrowserProfileRecord.defaultID)
+    }
 
     /// Computer Use Setup's grants (`ComputerUseSetup`, the same state the
     /// palette action and Settings show). The step shows whenever Computer
@@ -99,12 +101,18 @@ final class AppOnboardingServices: OnboardingServices {
         services.registry.disabledFeatures.contains(.computerUse) ? nil : computerUseSource
     }
 
-    private lazy var computerUseSource: any ComputerUsePermissionSource = {
+    private var resolvedComputerUseSource: (any ComputerUsePermissionSource)?
+    private var computerUseSource: any ComputerUsePermissionSource {
+        if let resolvedComputerUseSource { return resolvedComputerUseSource }
         #if DEBUG
         if ProcessInfo.processInfo.environment["CMUX_NEXT_ONBOARDING_COMPUTER_USE"] == "mock" {
-            return MockComputerUsePermissionSource(helperAppURL: URL(fileURLWithPath: "/Applications/cmux Computer Use.app"))
+            let mock = MockComputerUsePermissionSource(helperAppURL: URL(fileURLWithPath: "/Applications/cmux Computer Use.app"))
+            resolvedComputerUseSource = mock
+            return mock
         }
         #endif
-        return AppComputerUsePermissionSource(setup: services.onboarding.computerUseSetup)
-    }()
+        let source = AppComputerUsePermissionSource(setup: services.onboarding.computerUseSetup)
+        resolvedComputerUseSource = source
+        return source
+    }
 }

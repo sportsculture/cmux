@@ -1,7 +1,6 @@
 import CmuxNextActions
 import CmuxNextAgentPane
 import CmuxNextBridge
-import CmuxNextBrowserHistory
 import CmuxNextCompat
 import CmuxNextDaemon
 import Foundation

@@ -29,7 +29,6 @@ extension AgentPaneRequest: CustomStringConvertible, CustomDebugStringConvertibl
         case .touched: "touched"
         case .newTabContext: "newTabContext"
         case .newTabInputReady: "newTabInputReady"
-        case .newTabWarm: "newTabWarm"
         case .jump: "jump"
         case .editShortcut: "editShortcut"
         case .runAction: "runAction"

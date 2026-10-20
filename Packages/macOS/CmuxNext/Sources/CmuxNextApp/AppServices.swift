@@ -4,7 +4,6 @@ import CmuxNextApps
 import CmuxNextAgentPane
 import CmuxNextBridge
 import CmuxNextBrowser
-import CmuxNextBrowserHistory
 import CmuxNextChromiumWarmup
 import CmuxNextCompat
 import CmuxNextControl

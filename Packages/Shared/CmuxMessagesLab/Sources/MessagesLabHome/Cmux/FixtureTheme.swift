@@ -33,14 +33,12 @@ struct FixtureTheme: Equatable {
         let caret: NSColor
         let chipFill: NSColor
 
-        /// `measured`: the iMessage style, whose dark caret is Messages' own; the theme's look keeps the theme's caret.
-        init(_ p: HomePalette, measured: Bool = true) {
+        init(_ p: HomePalette) {
             palette = p
             func c(_ h: HomeColor) -> NSColor { NSColor(srgbRed: h.red, green: h.green, blue: h.blue, alpha: h.alpha) }
             background = c(p.background)
             incoming = c(p.incomingBubble)
-            // The sent bubble's solid colour: its gradient's first stop (the caret is a colour of its own).
-            outgoing = c(p.outgoingGradient.first?.color ?? p.caret)
+            outgoing = c(p.caret)
             connector = c(p.typingDot)
             badge = c(p.badge)
             incomingText = c(p.incomingText)
@@ -63,7 +61,7 @@ struct FixtureTheme: Equatable {
             // compose-parity, Fixture.placeholderInk / waveformInk: white 0.316, 212 at 0.556).
             placeholder = light ? c(p.placeholder) : NSColor(white: 1, alpha: 0.316)
             waveform = light ? c(p.placeholder) : NSColor(white: 212 / 255, alpha: 0.556)
-            caret = light || !measured ? c(p.caret) : Fixture.p3(63, 143, 247)
+            caret = light ? c(p.caret) : Fixture.p3(63, 143, 247)
             chipFill = light ? NSColor(white: 0, alpha: 0.08) : NSColor(white: 1, alpha: 0.12)
         }
 
@@ -77,8 +75,8 @@ struct FixtureTheme: Equatable {
     let measuredAccent: Bool
 
     init(active: HomePalette, inactive: HomePalette, measuredAccent: Bool = false) {
-        self.active = Colors(active, measured: measuredAccent)
-        self.inactive = Colors(inactive, measured: measuredAccent)
+        self.active = Colors(active)
+        self.inactive = Colors(inactive)
         self.measuredAccent = measuredAccent
     }
 }

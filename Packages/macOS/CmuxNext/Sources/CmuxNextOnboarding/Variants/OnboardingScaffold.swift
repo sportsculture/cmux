@@ -35,9 +35,7 @@ enum OnboardingScaffold {
     }
 }
 
-/// One trailing row: Back (on the import explainers), Skip, and the primary
-/// button (Done, Find Browsers, Import, Continue or Begin Importing; Return).
-/// Back and Skip are bordered secondary buttons, the primary is filled.
+/// Skip and the primary button (Done, Find Browsers or Import) on the right.
 final class OnboardingFooter: NSView {
     private let context: OnboardingStepContext
     private var loop: RenderLoop?
@@ -46,41 +44,27 @@ final class OnboardingFooter: NSView {
         self.context = context
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        let back = OnboardingControl.button(OnboardingStrings.back, target: self, action: #selector(backPressed))
-        back.setAccessibilityIdentifier("cmux.onboarding.footer.back")
-        let skip = OnboardingControl.button(context.model.skipTitle, target: self, action: #selector(skipPressed))
-        skip.setAccessibilityIdentifier("cmux.onboarding.footer.skip")
+        let skip = OnboardingControl.plainButton(OnboardingStrings.skip, target: self, action: #selector(skipPressed))
         let next = OnboardingControl.button(context.model.primaryTitle, prominent: true, target: self, action: #selector(nextPressed))
-        next.setAccessibilityIdentifier("cmux.onboarding.footer.next")
-        let row = NSStackView(views: [back, skip, next])
-        row.orientation = .horizontal
-        row.spacing = 12
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
+        for view in [skip, next] as [NSView] { addSubview(view) }
         NSLayoutConstraint.activate([
-            row.trailingAnchor.constraint(equalTo: trailingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
-            row.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor),
+            next.trailingAnchor.constraint(equalTo: trailingAnchor), next.centerYAnchor.constraint(equalTo: centerYAnchor),
+            skip.trailingAnchor.constraint(equalTo: next.leadingAnchor, constant: -20), skip.centerYAnchor.constraint(equalTo: centerYAnchor),
             heightAnchor.constraint(equalToConstant: 40),
         ])
         let model = context.model
-        loop = RenderLoop { [weak next, weak skip, weak back] in
+        loop = RenderLoop { [weak next] in
             let title = model.primaryTitle
             if next?.title != title {
                 next?.title = title
                 (next as? OnboardingAccentButton)?.refreshAppearance()
             }
-            // Skip Importing on the Keychain explainer.
-            if skip?.title != model.skipTitle { skip?.title = model.skipTitle }
-            let showsBack = model.flowProgress != nil
-            if back?.isHidden == showsBack { back?.isHidden = !showsBack }
-            if back?.isEnabled != model.canGoBack { back?.isEnabled = model.canGoBack }
         }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    @objc private func backPressed() { context.back() }
     @objc private func skipPressed() { context.skip() }
     @objc private func nextPressed() { context.next() }
 }

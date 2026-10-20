@@ -1,6 +1,6 @@
-public import CmuxNextBrowser
-public import CmuxNextDaemon
-public import Foundation
+import CmuxNextBrowser
+import CmuxNextDaemon
+import Foundation
 
 /// Reopen Closed Tab brings back a browser tab's back/forward history
 /// (cx-d0d.59), as Chrome's Cmd-Shift-T does. The daemon's closed record
@@ -15,7 +15,7 @@ public import Foundation
 /// the history closed in. The daemon's copy of the history (cx-d0d.11, for
 /// a reopen after a relaunch) is then not applied on top of it.
 @MainActor
-public final class ClosedBrowserHistories {
+final class ClosedBrowserHistories {
     private struct Saved {
         var url: String
         var profile: BrowserProfileID
@@ -35,10 +35,8 @@ public final class ClosedBrowserHistories {
     /// it restored in.
     private var restoredTabs: [String: BrowserEngineKind] = [:]
 
-    public init() {}
-
     /// A browser tab's page is closing (`TabContentCache.release`).
-    public func save(_ page: (any BrowserTab)?) {
+    func save(_ page: (any BrowserTab)?) {
         guard let page, let url = page.state.url?.absoluteString, let state = BrowserRestoreState.history(of: page) else { return }
         closed.append(Saved(url: url, profile: page.profileID, state: state, at: clock.now))
         if closed.count > Self.limit { closed.removeFirst(closed.count - Self.limit) }
@@ -46,7 +44,7 @@ public final class ClosedBrowserHistories {
 
     /// `item` is about to reopen: each of its browser tabs' newest saved
     /// history waits for the tab's new page.
-    public func expect(_ item: ClosedItem) {
+    func expect(_ item: ClosedItem) {
         let now = clock.now
         expected.removeAll { now - $0.at > Self.claimWindow }
         for tab in item.tabs where tab.kind == "browser" {
@@ -58,14 +56,14 @@ public final class ClosedBrowserHistories {
     }
 
     /// `item`'s reopen failed: its histories wait no longer.
-    public func drop(_ item: ClosedItem) {
+    func drop(_ item: ClosedItem) {
         let urls = Set(item.tabs.compactMap(\.url))
         expected.removeAll { urls.contains($0.url) }
     }
 
     /// The history a reopened tab's new page at `url` in `profile` restores,
     /// for a Chromium page or a WebKit one.
-    public func claim(_ url: String?, profile: BrowserProfileID, chromium: Bool, tab: String) -> BrowserRestoreState? {
+    func claim(_ url: String?, profile: BrowserProfileID, chromium: Bool, tab: String) -> BrowserRestoreState? {
         let now = clock.now
         guard let url, let index = expected.lastIndex(where: {
             $0.url == url && $0.profile == profile && now - $0.at <= Self.claimWindow && Self.isChromium($0.state) == chromium
@@ -76,13 +74,13 @@ public final class ClosedBrowserHistories {
 
     /// True once when tab `tab`'s page in `engine` restored a history from
     /// here; a Chromium page that failed to start and fell back to WebKit did not.
-    public func takeRestored(_ tab: String, engine: BrowserEngineKind) -> Bool {
+    func takeRestored(_ tab: String, engine: BrowserEngineKind) -> Bool {
         restoredTabs.removeValue(forKey: tab) == engine
     }
 
     /// `base` for a new Chromium page at `url`, with a reopened local tab's
     /// history when one waits for it; a page that already restores keeps its own.
-    public func restoring(_ base: BrowserTabConfiguration, url: URL?, local: Bool, tab: String) -> BrowserTabConfiguration {
+    func restoring(_ base: BrowserTabConfiguration, url: URL?, local: Bool, tab: String) -> BrowserTabConfiguration {
         guard local, base.restoreState == nil,
               let state = claim(url?.absoluteString, profile: base.profile, chromium: true, tab: tab) else { return base }
         var restored = base

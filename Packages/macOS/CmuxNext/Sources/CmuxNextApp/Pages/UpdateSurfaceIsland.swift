@@ -30,8 +30,7 @@ final class UpdateSurfaceIsland: SidebarSurfaceIsland {
     private(set) var contentHeight: CGFloat = 0
     var onHeightChange: (() -> Void)?
     var onAction: (() -> Void)?
-    var onDismiss: (() -> Void)?
-    let provider: UpdateSurfaceProvider
+    private let provider: UpdateSurfaceProvider
 
     init(kind: SidebarUpdateSurfaceKind, services: AppServices?) {
         let provider = UpdateSurfaceProvider(kind: kind, services: services)
@@ -39,7 +38,6 @@ final class UpdateSurfaceIsland: SidebarSurfaceIsland {
         view = services.flatMap { PageFactory(services: $0).updateSurfacePage(kind: kind, provider: provider) } ?? NSView()
         provider.onHeight = { [weak self] height in self?.setHeight(height) }
         provider.onAction = { [weak self] in self?.onAction?() }
-        provider.onDismiss = { [weak self] in self?.onDismiss?() }
     }
 
     func close() {
@@ -69,9 +67,6 @@ final class UpdateSurfaceProvider: PageProvider {
     var onHeight: ((CGFloat) -> Void)?
     /// The page ran an action (the popover closes).
     var onAction: (() -> Void)?
-    /// The card's x: the sidebar sends `.dismissUpdated` (SidebarCardFeed.handle), the one
-    /// card-dismiss path; the provider never dismisses on its own.
-    var onDismiss: (() -> Void)?
 
     init(kind: SidebarUpdateSurfaceKind, services: AppServices?) {
         self.kind = kind
@@ -90,10 +85,6 @@ final class UpdateSurfaceProvider: PageProvider {
     }
 
     func call(_ op: String, params: JSONValue, context: PageCallContext) async throws -> JSONValue {
-        if op == "cmux.changelog.surface.dismiss" {
-            onDismiss?()
-            return .null
-        }
         guard let services else { throw PageError.unknownOp(op) }
         switch op {
         case "cmux.changelog.surface.get":
@@ -106,6 +97,9 @@ final class UpdateSurfaceProvider: PageProvider {
         case "cmux.changelog.surface.openChangelog":
             _ = kind == .ready ? services.updater.openStagedChangelog() : services.updater.openWhatsNewForLastUpdate()
             onAction?()
+            return .null
+        case "cmux.changelog.surface.dismiss":
+            services.updater.whatsNew.dismissUpdated()
             return .null
         default:
             throw PageError.unknownOp(op)

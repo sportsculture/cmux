@@ -49,8 +49,6 @@ enum DebugOnboarding {
         case "skip_passwords": model.importer.skipPasswords()
         case "consent_back": model.importer.backFromConsent()
         case "import_from_files": model.importer.importFromFiles()
-        case "ask_access": if let id = params["browser"]?.stringValue { model.importer.askAccess(ImportBrowser(rawValue: id)) }
-        case "cancel_access": model.importer.cancelAccess()
         case "allow": if let pane = params["pane"]?.stringValue.flatMap(ComputerUsePermissionPane.init(rawValue:)) { model.computerUse.allow(pane) }
         case "dismiss_helper": model.computerUse.dismissHelper()
         case "grant":
@@ -83,7 +81,6 @@ enum DebugOnboarding {
             .object(["id": .string(profile.id), "selected": .bool(model.importer.isSelected(profile)),
                      "kinds": .array(profile.importableKinds.map { .string($0.rawValue) })])
         })
-        result["awaiting_access"] = .array(model.importer.awaitingAccess.map { .string($0.rawValue) })
         result["kinds"] = .array(model.importer.kinds.map(\.rawValue).sorted().map(JSONValue.string))
         result["merge_target"] = model.importer.mergeTarget.map(JSONValue.string) ?? .null
         if case .finished(let summary) = model.importer.phase {
@@ -113,7 +110,6 @@ enum DebugOnboarding {
         case .detecting: "detecting"
         case .ready: "ready"
         case .confirmingPasswords: "confirming_passwords"
-        case .explainingAccess(let browser): "explaining_access: \(browser.rawValue)"
         case .importing: "importing"
         case .finished: "finished"
         case .cancelled: "cancelled"

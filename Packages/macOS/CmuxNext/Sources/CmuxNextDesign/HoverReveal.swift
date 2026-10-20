@@ -20,7 +20,7 @@ public nonisolated struct HoverRevealState: Hashable, Sendable {
 /// The one hover-reveal mechanism (R83 title bar buttons, R97 account icon,
 /// R100 sidebar footer, R120 tab bar plus). Views added here fade in, in
 /// place, while the pointer is over `region`, while a `Hold` is open, or
-/// while one of them has keyboard focus; they fade out (to `restAlpha`) otherwise. Fading
+/// while one of them has keyboard focus; they fade out otherwise. Fading
 /// changes only `alphaValue`: frames never move, the views stay in the
 /// accessibility tree and keep taking clicks.
 ///
@@ -68,14 +68,6 @@ public final class HoverReveal {
 
     public private(set) var state = HoverRevealState()
     public var isRevealed: Bool { state.isRevealed }
-    /// The views' alpha at rest: 0 hides them (the default); more shows them muted, as the tab bar's
-    /// plus and "…" do (Leo 2026-10-19: a hidden control's kept room read as an empty gap).
-    public var restAlpha: CGFloat = 0 {
-        didSet {
-            guard restAlpha != oldValue, !isRevealed else { return }
-            for view in views.values.compactMap(\.value) { view.alphaValue = restAlpha }
-        }
-    }
     /// False shows the views always.
     public var isEnabled: Bool {
         get { state.isEnabled }
@@ -155,7 +147,7 @@ public final class HoverReveal {
         }
         Self.viewOwners[key] = WeakReveal(self)
         views[key] = Weak(view)
-        view.alphaValue = isRevealed ? 1 : restAlpha
+        view.alphaValue = isRevealed ? 1 : 0
         return true
     }
 
@@ -233,7 +225,7 @@ public final class HoverReveal {
         change(&state)
         if state != old { onStateChange?(state) }
         guard state.isRevealed != old.isRevealed else { return }
-        let alpha: CGFloat = state.isRevealed ? 1 : restAlpha
+        let alpha: CGFloat = state.isRevealed ? 1 : 0
         let targets = views.values.compactMap(\.value)
         Motion.animate(.hover, in: region) {
             for view in targets { view.animator().alphaValue = alpha }

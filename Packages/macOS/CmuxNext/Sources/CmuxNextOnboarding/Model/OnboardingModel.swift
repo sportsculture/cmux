@@ -37,8 +37,6 @@ public final class OnboardingModel {
     /// else Done.
     public var primaryTitle: String {
         if step == .importData, importer.phase == .idle { return OnboardingStrings.findBrowsers }
-        if step == .importData, importer.explainingAccess != nil { return OnboardingStrings.continueTitle }
-        if step == .importData, importer.isConfirmingPasswords { return OnboardingStrings.beginImporting }
         if step == .importData, importer.canStart { return OnboardingStrings.importButton }
         return OnboardingStrings.done
     }
@@ -53,13 +51,6 @@ public final class OnboardingModel {
         case .importData where importer.phase == .idle:
             importer.detect()
             return
-        case .importData where importer.explainingAccess != nil:
-            importer.continueAccess()
-            return
-        // Begin Importing; while Touch ID is up it waits, never ends the window.
-        case .importData where importer.isConfirmingPasswords:
-            if importer.canStart { importer.start() }
-            return
         case .importData where importer.canStart:
             importer.start()
             return
@@ -68,34 +59,8 @@ public final class OnboardingModel {
         }
     }
 
-    /// The footer's Skip: Skip Importing on the Keychain explainer, where it
-    /// leaves without reading anything.
-    public var skipTitle: String {
-        step == .importData && importer.isConfirmingPasswords ? OnboardingStrings.skipImporting : OnboardingStrings.skip
-    }
-
-    /// The footer's Back: shown on the folder and Keychain explainers, off
-    /// while the open panel or the Touch ID sheet is up.
-    public var canGoBack: Bool {
-        guard step == .importData else { return false }
-        if importer.explainingAccess != nil { return !importer.requestingAccess }
-        return importer.isConfirmingPasswords && !importer.authorizing
-    }
-
-    /// Back: from either explainer to the list, nothing read.
-    public func goBack() {
-        guard canGoBack else { return }
-        if importer.explainingAccess != nil { importer.cancelAccess() } else { importer.backFromConsent() }
-    }
-
-    /// The bar over the explainers (`ImportStepModel.explainerProgress`); nil elsewhere.
-    public var flowProgress: Double? { step == .importData ? importer.explainerProgress : nil }
-
-    /// Skip (Escape): ends the window; a running import finishes. Skip
-    /// Importing on the Keychain explainer reads nothing, even when Touch ID
-    /// answers after the window is gone.
+    /// Skip (Escape): ends the window; a running import finishes.
     public func skipStep() {
-        if step == .importData, importer.isConfirmingPasswords { importer.backFromConsent() }
         finish(completed: false)
     }
 

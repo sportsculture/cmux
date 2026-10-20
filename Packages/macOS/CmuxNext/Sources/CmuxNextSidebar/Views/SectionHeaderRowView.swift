@@ -27,6 +27,8 @@ final class SectionHeaderRowView: SidebarRowView {
         super.init(key: key)
         layer?.addSublayer(status)
         [glyph, machineIcon, name, badge, chevron, addButton].forEach(addSubview)
+        // The header's label and AXExpanded say what the glyph and chevron draw.
+        [glyph, chevron].forEach { $0.setAccessibilityElement(false) }
         addButton.onPress = { [weak self] in self?.onAdd?() }
     }
 
@@ -133,6 +135,13 @@ final class SectionHeaderRowView: SidebarRowView {
         setAccessibilityElement(true)
         setAccessibilityRole(.disclosureTriangle)
         setAccessibilityExpanded(!collapsed)
+        let sectionID = switch section.id {
+        case .pinned: "pinned"
+        case let .machine(machine): "machine.\(machine.rawValue)"
+        case let .custom(custom): "custom.\(custom)"
+        }
+        setAccessibilityIdentifier("cmux.sidebar.section.\(sectionID)")
+        addButton.setAccessibilityIdentifier("cmux.sidebar.section.\(sectionID).newWorkspace")
         addButton.isHidden = true
         needsLayout = true
         needsDisplay = true

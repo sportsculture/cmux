@@ -111,12 +111,6 @@ final class FieldTextView: NSTextView {
     }
     var caretSuspended = false { didSet { updateCaret(reset: false) } }
 
-    /// cmux: the caret's colour after a palette change (it was set once, when the field was made).
-    func recolorCaret() {
-        caretLayer.backgroundColor = Fixture.caret.cgColor
-        if !Self.ownCaret, insertionPointColor != .clear { insertionPointColor = Fixture.caret }
-    }
-
     func installCaret() {
         guard Self.ownCaret else { return }
         insertionPointColor = .clear
@@ -827,6 +821,7 @@ final class ComposeView: UIView {
         tv.isAutomaticDashSubstitutionEnabled = NSSpellChecker.isAutomaticDashSubstitutionEnabled
         if #available(macOS 15, *) { tv.writingToolsBehavior = ComposeView.writingTools }
         tv.setAccessibilityLabel(Strings.placeholder)
+        tv.setAccessibilityIdentifier("cmux.home.composer")
 
         caret.backgroundColor = Fixture.caret.cgColor
         caret.isHidden = true
@@ -872,8 +867,6 @@ final class ComposeView: UIView {
         if !nativeChrome { renderGlass(); buttons.setNeedsDisplay() }
         renderPlaceholder()
         renderChips()
-        // cmux: the caret follows the palette too (the bubble style, the theme, the accent).
-        textView.view.recolorCaret()
     }
 
     /// The "+" button (opens the file picker).

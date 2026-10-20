@@ -5,10 +5,8 @@ import CmuxNextDesign
 /// Import: one row per detected browser profile (the browser's own icon,
 /// the profile's picture and name, a checkbox), then one line of what to
 /// bring. Import runs in place: each row shows its progress, then what came
-/// over; the line under the list sums it up. A browser cmux has no folder
-/// grant for is a row with Allow Access…, which swaps the list for the grant
-/// explainer (`ImportAccessView`). With passwords checked, Import first swaps
-/// the list for the Keychain explainer (`ImportConsentView`).
+/// over; the line under the list sums it up. With passwords checked,
+/// Import first swaps the list for the consent screen (`ImportConsentView`).
 final class ImportStepView: NSView {
     private let model: ImportStepModel
     private let list = NSStackView()
@@ -20,13 +18,6 @@ final class ImportStepView: NSView {
     private var kindSlots: [NSButton] = []
     private var shownKinds: [ImportDataKind] = []
     private let consent: ImportConsentView
-    private let access: ImportAccessView
-    /// Import Passwords from CSV…: when this build or the Keychain cannot give the passwords.
-    private lazy var passwordsCSV: NSButton = {
-        let button = OnboardingControl.plainButton(OnboardingStrings.importPasswordsCSV, target: self, action: #selector(importPasswordsCSV))
-        button.setAccessibilityIdentifier("cmux.onboarding.import.passwordsCSV")
-        return button
-    }()
     /// Import from Another Browser… (cx-d0d.65): the files a browser exports, for a browser not
     /// listed (or a build that reads no browser's data).
     private lazy var fromFiles: NSButton = {
@@ -36,13 +27,11 @@ final class ImportStepView: NSView {
     }()
     private var listViews: [NSView] = []
     private var shownProfiles: [BrowserSourceProfile]?
-    private var shownAwaiting: [ImportBrowser]?
     private var loop: RenderLoop?
 
     init(model: ImportStepModel) {
         self.model = model
         consent = ImportConsentView(model: model)
-        access = ImportAccessView(model: model)
         super.init(frame: .zero)
         list.orientation = .vertical
         list.alignment = .leading
@@ -78,12 +67,9 @@ final class ImportStepView: NSView {
         kinds.spacing = 20
         let separator = ThemedView()
         separator.fill = { Palette.separator }
-        let fileLinks = NSStackView(views: [fromFiles, passwordsCSV])
-        fileLinks.spacing = 16
-        listViews = [scroll, separator, kinds, fileLinks]
+        listViews = [scroll, separator, kinds, fromFiles]
         consent.isHidden = true
-        access.isHidden = true
-        let stack = NSStackView(views: [scroll, separator, kinds, consent, access, status, fileLinks])
+        let stack = NSStackView(views: [scroll, separator, kinds, consent, status, fromFiles])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 14
@@ -100,7 +86,6 @@ final class ImportStepView: NSView {
             separator.widthAnchor.constraint(equalTo: stack.widthAnchor), separator.heightAnchor.constraint(equalToConstant: 1),
             status.widthAnchor.constraint(equalTo: stack.widthAnchor),
             consent.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            access.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
         loop = RenderLoop { [weak self] in self?.render() }
     }
@@ -110,25 +95,18 @@ final class ImportStepView: NSView {
 
     @objc private func kindToggled(_ sender: NSButton) { model.toggle(shownKinds[sender.tag]) }
     @objc private func importFromFiles() { model.importFromFiles() }
-    @objc private func importPasswordsCSV() { model.importPasswordsFromCSV() }
     private func render() {
         let confirming = model.isConfirmingPasswords
-        let explaining = model.explainingAccess != nil
-        listViews.forEach { $0.isHidden = confirming || explaining }
+        listViews.forEach { $0.isHidden = confirming }
         consent.isHidden = !confirming
-        access.isHidden = !explaining
         if confirming { consent.render() }
-        if explaining { access.render() }
-        passwordsCSV.isHidden = !model.offersPasswordCSV
         let profiles = model.profiles
-        let awaiting = model.awaitingAccess
-        if profiles != shownProfiles || awaiting != shownAwaiting {
+        if profiles != shownProfiles {
             shownProfiles = profiles
-            shownAwaiting = awaiting
             rows = [:]
             let apps = Dictionary(model.sources.map { ($0.browser, $0.appURL) }, uniquingKeysWith: { first, _ in first })
             let blockedBrowsers = Set(model.sources.filter(\.needsFullDiskAccess).map(\.browser))
-            while rowSlots.count < profiles.count + awaiting.count {
+            while rowSlots.count < profiles.count {
                 let row = ImportProfileRow(toggle: nil)
                 rowSlots.append(row)
                 list.addArrangedSubview(row)
@@ -136,13 +114,7 @@ final class ImportStepView: NSView {
             }
             for (index, row) in rowSlots.enumerated() {
                 guard profiles.indices.contains(index) else {
-                    let waiting = index - profiles.count
-                    if awaiting.indices.contains(waiting) {
-                        let browser = awaiting[waiting]
-                        row.configureAwaiting(browser) { [weak model] in model?.askAccess(browser) }
-                    } else {
-                        row.clearProfile()
-                    }
+                    row.clearProfile()
                     continue
                 }
                 let profile = profiles[index]
@@ -189,7 +161,7 @@ final class ImportStepView: NSView {
         switch model.phase {
         case .idle: return OnboardingStrings.notSearched
         case .detecting: return OnboardingStrings.detecting
-        case .importing, .confirmingPasswords, .explainingAccess: return ""
+        case .importing, .confirmingPasswords: return ""
         case .finished(let summary):
             let counts = ImportCountsText.line(summary.counts)
             var line = counts.isEmpty ? OnboardingStrings.importedNothing : OnboardingStrings.imported(counts)
@@ -200,7 +172,7 @@ final class ImportStepView: NSView {
             return summary.failures.isEmpty ? line : line + " " + OnboardingStrings.importSomeFailed
         case .failed(let message): return message
         default:
-            return profiles.isEmpty && model.awaitingAccess.isEmpty ? OnboardingStrings.noBrowsers : ""
+            return profiles.isEmpty ? OnboardingStrings.noBrowsers : ""
         }
     }
 }

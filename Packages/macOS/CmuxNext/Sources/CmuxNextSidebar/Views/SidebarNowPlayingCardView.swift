@@ -45,8 +45,12 @@ final class SidebarNowPlayingCardView: NSView {
         playPauseButton.onPress = { [weak self] in self?.onCommand?(.playPause) }
         nextButton.onPress = { [weak self] in self?.onCommand?(.next) }
         scrubber.onSeek = { [weak self] seconds in self?.onCommand?(.seek(seconds)) }
+        for (view, control) in [(previousButton, "previous"), (playPauseButton, "playPause"), (nextButton, "next"), (scrubber, "scrubber")] as [(NSView, String)] {
+            view.setAccessibilityIdentifier("cmux.sidebar.nowPlaying.\(control)")
+        }
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
+        setAccessibilityIdentifier("cmux.sidebar.nowPlaying")
         isHidden = true
     }
 
@@ -191,6 +195,7 @@ final class SidebarNowPlayingScrubber: NSView {
         fill.anchorPoint = .zero
         setAccessibilityElement(true)
         setAccessibilityRole(.slider)
+        setAccessibilityLabel(Strings.nowPlayingPosition)
     }
 
     @available(*, unavailable)
