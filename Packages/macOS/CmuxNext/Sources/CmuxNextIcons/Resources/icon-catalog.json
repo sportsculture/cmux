@@ -367,6 +367,30 @@
    "family": "browser"
   },
   {
+   "name": "browser.extensions.manage",
+   "meaning": "Extensions menu: Manage extensions (Chrome's settings gear)",
+   "sf": "gearshape",
+   "family": "browser.extensions"
+  },
+  {
+   "name": "browser.extensions.more",
+   "meaning": "Extensions menu: an extension's more-actions button (Chrome's vertical three dots)",
+   "sf": "ellipsis.vertical",
+   "family": "browser.extensions"
+  },
+  {
+   "name": "browser.extensions.pin",
+   "meaning": "Extensions menu: pin an extension to the toolbar (Chrome's keep icon)",
+   "sf": "pin",
+   "family": "browser.extensions"
+  },
+  {
+   "name": "browser.extensions.unpin",
+   "meaning": "Extensions menu: unpin a pinned extension (Chrome's keep-off icon)",
+   "sf": "pin.slash",
+   "family": "browser.extensions"
+  },
+  {
    "name": "browser.incognito",
    "meaning": "Incognito / private window",
    "sf": "eyeglasses",
