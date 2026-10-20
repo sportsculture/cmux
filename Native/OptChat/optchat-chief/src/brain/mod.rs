@@ -173,12 +173,22 @@ pub enum Input {
     TurnView {
         reply: Sender<Option<String>>,
     },
-    /// `tell(id, message, key)`.
+    /// `tell(id, message, key, queue)`.
     Tell {
         id: String,
         message: String,
         key: Option<String>,
+        /// Wait for the running turn instead of interrupting it.
+        queue: bool,
         reply: Sender<Result<String, String>>,
+    },
+    /// A tell's steer into subagent `id`'s running turn in `session` was
+    /// refused (its agent cannot steer now): the brain interrupts the turn
+    /// and sends `message` as its next prompt (spawns.rs `tell_unsteered`).
+    TellUnsteered {
+        id: String,
+        session: String,
+        message: String,
     },
     /// `control(action, ...)` (control.rs).
     Control {
@@ -876,11 +886,17 @@ impl Brain {
                 id,
                 message,
                 key,
+                queue,
                 reply,
             } => {
-                let answer = self.tell_keyed(&id, &message, key.as_deref());
+                let answer = self.tell_with(&id, &message, key.as_deref(), queue);
                 let _ = reply.send(answer);
             }
+            Input::TellUnsteered {
+                id,
+                session,
+                message,
+            } => self.tell_unsteered(&id, &session, &message),
             Input::Control { request, reply } => {
                 let answer = self.control(&request);
                 let _ = reply.send(answer);
