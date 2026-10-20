@@ -1188,8 +1188,16 @@ final class SidebarController: NSViewController, NSSearchFieldDelegate, NSMenuDe
         }
         configureSenders(l, c, avatar: ar)
         l.dot.isHidden = !c.unread
-        l.dot.cornerRadius = 6
+        l.dot.cornerRadius = metrics.compact ? SidebarMetrics.dotDiameter / 2 : 6
         l.dot.backgroundColor = palette.unread
+        // cmux: the compact list marks the pinned group with a hairline under its last avatar
+        // (the avatars are row-sized there, so size no longer says "pinned").
+        l.separator.isHidden = !(metrics.compact && t == pinnedItems.count - 1)
+        if !l.separator.isHidden {
+            let hair = 1 / max(1, document.window?.backingScaleFactor ?? 2)
+            l.separator.frame = CGRect(x: ar.minX, y: f.height - hair, width: ar.width, height: hair)
+            l.separator.backgroundColor = palette.separator
+        }
         if c.typing {
             l.setTyping(palette, scale: s)
             l.typing?.showsTail = true
