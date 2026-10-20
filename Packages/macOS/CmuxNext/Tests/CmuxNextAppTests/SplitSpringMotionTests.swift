@@ -119,7 +119,8 @@ struct SplitSpringMotionTests {
         }
         print("split-spring frames (120 Hz; widths p1 p2 p3; reply at frame 12):\n" + rows.joined(separator: "\n"))
         #expect(after == targets, "the reply's sizing retargeted the panes mid-spring: a second motion")
-        #expect(p1 == p1.sorted(by: >), "p1 reversed or restarted after the reply")
+        // Never growing back (0.1 pt: the split spring's sub-pixel tail may cross its target once).
+        #expect(zip(p1, p1.dropFirst()).allSatisfy { $1 <= $0 + 0.1 }, "p1 reversed after the reply")
     }
 
     @Test func theSizingGoesToTheDaemonOnlyOnceTheSplitLanded() throws {
@@ -167,7 +168,7 @@ struct SplitSpringMotionTests {
         }
         let early = sizes[Int((0.05 * Self.scale / Self.dt).rounded()) - 1] / extent(target)
         #expect(early > 0.2 && early < 0.45, "at 50 ms the new pane is at \(early) of its size")
-        #expect(sizes == sizes.sorted(), "the new pane shrank on its way in")
+        #expect(zip(sizes, sizes.dropFirst()).allSatisfy { $1 >= $0 - 0.1 }, "the new pane shrank on its way in")
         #expect(sizes.allSatisfy { $0 <= extent(target) + 0.25 }, "the new pane overshot: \(sizes.max() ?? 0) > \(extent(target))")
         #expect(screen.rect("p2") == target)
         #expect((rest ?? .max) <= Int((0.75 * Self.scale / Self.dt).rounded(.up)), "at rest at frame \(rest.map(String.init) ?? "never")")
