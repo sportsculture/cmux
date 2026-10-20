@@ -12,6 +12,9 @@ public struct TabDragStart: Equatable, Sendable {
     public var screenPoint: CGPoint
     /// Image of the tab itself. The session may prefer a content thumbnail.
     public var snapshot: TabImage?
+    /// The other tabs of a dragged multi-selection, in display order: a drop into another
+    /// strip moves them after the dragged tab. Empty for a single tab.
+    public var companions: [TabID] = []
 }
 
 /// Result of hit-testing a strip during an external drag.

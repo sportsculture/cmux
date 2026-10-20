@@ -26,6 +26,9 @@ final class TabDragSession: NSObject {
     /// Ghost of the previous drag still flying home or into its slot.
     var landing: Drag?
     var resignObserver: (any NSObjectProtocol)?
+    /// The other tabs of a dragged multi-selection (`TabDragStart.companions`): a drop into a
+    /// strip moves them after the dragged tab. Set for each tab drag.
+    var tabCompanions: [String] = []
 
     init(services: AppServices) {
         self.services = services
@@ -46,6 +49,7 @@ final class TabDragSession: NSObject {
         let payload = TabDragPayload.tab(id: start.tabID.rawValue, sourceStripID: start.stripID)
         begin(item: item, payload: payload, frame: start.screenFrame, grabOffset: start.grabOffset, point: start.screenPoint,
               image: start.snapshot?.cgImage, previewTab: start.tabID.rawValue, draggedCount: 1, pane: pane)
+        tabCompanions = start.companions.map(\.rawValue)
     }
 
     func beginGroup(_ start: TabGroupDragStart, from pane: PaneController) {
@@ -63,6 +67,7 @@ final class TabDragSession: NSObject {
                previewTab: String?, draggedCount: Int, pane: PaneController?, window sourceWindow: WindowController? = nil) {
         if drag != nil { finish(commit: false) }
         finishLanding()
+        tabCompanions = []
 
         let window = sourceWindow ?? services.windows.controllers.first { $0.content === pane?.workspace }
         var context = pane.map { Self.context(of: $0, item: item, draggedCount: draggedCount) } ?? .workspaces(count: draggedCount)

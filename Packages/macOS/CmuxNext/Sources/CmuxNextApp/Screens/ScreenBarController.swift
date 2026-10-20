@@ -40,6 +40,7 @@ final class ScreenBarController {
         view.previewProvider = preview
         view.setAccessibilityLabel(ScreenStrings.barAccessibility)
         model.intentHandler = { [weak self] intent in self?.handle(intent) }
+        model.allowsMultiSelection = false
         view.contextMenuProvider = { [weak self] target in self?.contextMenu(for: target) }
         apply(snapshot())
         observation = Task { [weak self] in
@@ -149,6 +150,8 @@ final class ScreenBarController {
             handleGroup(intent)
         case .moveToNewSplit, .moveToNewColumn:
             break
+        case .moveTabs:  // The screen bar has no multi-selection (`allowsMultiSelection` is off).
+            view.discardPendingReorder()
         }
     }
 

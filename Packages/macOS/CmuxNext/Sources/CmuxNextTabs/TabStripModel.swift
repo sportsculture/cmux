@@ -20,6 +20,12 @@ public final class TabStripModel {
     /// Groups of this strip. Members reference them through `TabItem.groupID`.
     public var groups: [TabGroupItem]
     public var selectedID: TabID?
+    /// Tabs selected with the shown tab (Cmd- and Shift-click). Read the selection through
+    /// `selectedIDs`, which drops this once `selectedID` moves to another tab.
+    public var multiSelection: TabMultiSelection?
+    /// Whether Cmd- and Shift-click select more tabs. Off for a strip whose owner has no actions
+    /// on several tabs (the screen bar); a modified click then selects like a plain one.
+    public var allowsMultiSelection = true
     public var style: TabStripStyle
     public var showsNewTabButton: Bool
 

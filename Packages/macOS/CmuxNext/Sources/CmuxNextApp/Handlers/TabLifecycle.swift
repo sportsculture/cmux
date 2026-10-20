@@ -339,6 +339,8 @@ enum TabLifecycle {
             // creation it focuses closes, never the old pane's tab (CancelledCreation).
             if let content = ctx.focusedContent, case .tab(let id)? = content.focus.state.expectation?.key, content.daemon.cancelCreation(tab: id) { return ctx.services.keyRouter.creationInputCoordinator.drop(tab: id, in: content.contentView.window) }
             guard let (pane, id) = ctx.tab(invocation) else { return }
+            // Cmd-W on a multi-selection closes every selected tab (Chrome), pinned ones only when Cmd-W closes pinned tabs.
+            if pane.stripModel.actionTabs(for: id).count > 1 { return closeSelection(of: id, in: pane, invocation, ctx) }
             // The user's Cmd-W keeps a pinned tab (Chrome parity, PINNED-ITEMS-END-TO-END P3) unless
             // `tabs.cmdWClosesPinnedTabs` is on; the tab menu, the CLI and MCP name the tab and close it.
             if invocation.origin == .user {
@@ -354,11 +356,24 @@ enum TabLifecycle {
         }
         guard let (tab, pane) = ctx.daemonTab(invocation) else { return }
         if let controller = ctx.services.paneController(for: pane) {
-            return CloseUndoToasts.close(in: controller, [StripTabID(tab.id)])
+            // The tab menu of a tab in a multi-selection closes the selection (`AppActionContext.actionTabs`).
+            return CloseUndoToasts.close(in: controller, controller.stripModel.actionTabs(for: StripTabID(tab.id)))
         }
         let command = ctx.services.daemon(for: pane).closeCommand(for: tab)
         if tab.kind == .remoteTerminal { ctx.services.remoteTerminals.viewClosed(tab) }
         ctx.send(command.label, command.run)
+    }
+
+    /// Closes the multi-selection holding `id` (Cmd-W). A user's Cmd-W keeps its pinned tabs unless
+    /// `tabs.cmdWClosesPinnedTabs` is on, as it keeps a single pinned tab.
+    private static func closeSelection(of id: StripTabID, in pane: PaneController, _ invocation: ActionInvocation, _ ctx: AppActionContext) {
+        let keepsPinned = invocation.origin == .user && !(ctx.services.settings?.snapshot.cmdWClosesPinnedTabs ?? CmdWClosesPinnedTabsSetting.fallback)
+        let ids = pane.stripModel.actionTabs(for: id).filter { id in
+            pane.stripModel.tab(id).map { $0.isClosable && !(keepsPinned && $0.isPinned) } ?? true
+        }
+        guard !ids.isEmpty else { return ctx.refuse(RefusalStrings.pinnedTabKept) }
+        pane.stripModel.clearMultiSelection()
+        CloseUndoToasts.close(in: pane, ids)
     }
 
     /// The explicitly targeted tab when no window shows it (rename and pin

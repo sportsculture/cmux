@@ -20,6 +20,8 @@ final class TabCell {
             stateChanged(animated: false)
         }
     }
+    /// Selected with the shown tab (Cmd- or Shift-click, `TabMultiSelection`): a lighter selection fill.
+    var isMultiSelected = false { didSet { if oldValue != isMultiSelected { updateColors(animated: false) } } }
     var isHovered = false { didSet { if oldValue != isHovered { stateChanged() } } }
     var isCloseHovered = false { didSet { if oldValue != isCloseHovered { updateColors(animated: true, showing: isCloseHovered) } } }
     var isClosePressed = false { didSet { if oldValue != isClosePressed { updateColors(animated: false) } } }
@@ -276,14 +278,15 @@ final class TabCell {
     private func applyColors() {
         themeScope.perform {
             backgroundLayer.shadowColor = Palette.shadow.cgColor
-            let fill: NSColor? = fillsSelection ? Palette.selectionFill : (isHovered ? Palette.hoverFill : nil)
+            let fill: NSColor? = fillsSelection ? Palette.selectionFill
+                : isMultiSelected ? Self.multiSelectionFill : (isHovered ? Palette.hoverFill : nil)
             backgroundLayer.backgroundColor = fill?.cgColor
             if isLifted {
                 // A lifted tab reads as solid so it does not show tabs sliding under it.
                 backgroundLayer.backgroundColor = Palette.windowBackground.blended(withFraction: 0.08, of: Palette.textPrimary)?.cgColor
             }
             // A hibernated tab keeps its title color (Chrome's discarded tabs do too); the ring marks it.
-            let text = isSelected ? Palette.textPrimary : Palette.textSecondary
+            let text = isSelected || isMultiSelected ? Palette.textPrimary : Palette.textSecondary
             hibernationRingLayer?.strokeColor = Self.hibernationRingColor.cgColor
             titleLayer.foregroundColor = text.cgColor
             machineLayer?.foregroundColor = Palette.textTertiary.cgColor

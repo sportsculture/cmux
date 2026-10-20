@@ -33,4 +33,27 @@ public nonisolated enum TabMoveIndex {
         let shown = display.filter { $0 != moving }
         return shown.prefix(min(max(displayIndex, 0), shown.count)).filter(members.contains).count
     }
+
+    /// The final display index for step `step` of a block move: `block[step]` goes right after
+    /// `block[step - 1]`, and the first tab right after the `restIndex`-th tab that is not in the
+    /// block. `current` is the display order now, before this step's move.
+    ///
+    /// - Parameters:
+    ///   - current: The display order before this step.
+    ///   - block: The moving tabs, the dragged one first.
+    ///   - step: Which tab of `block` moves now.
+    ///   - restIndex: How many tabs outside the block go before it.
+    /// - Returns: The display index `block[step]` moves to.
+    public static func blockStepIndex(current: [String], block: [String], step: Int, restIndex: Int) -> Int {
+        let moving = block[step]
+        let others = current.filter { $0 != moving }
+        if step > 0, let previous = others.firstIndex(of: block[step - 1]) { return previous + 1 }
+        let members = Set(block)
+        var seen = 0
+        for (position, id) in others.enumerated() {
+            if seen == restIndex { return position }
+            if !members.contains(id) { seen += 1 }
+        }
+        return others.count
+    }
 }

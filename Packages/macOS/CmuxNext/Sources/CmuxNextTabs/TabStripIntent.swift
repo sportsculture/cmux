@@ -28,6 +28,10 @@ public enum TabStripIntent: Equatable, Sendable {
     case closeToRight(of: TabID)
     /// Drag reorder inside one strip. `to` is the final index of the tab.
     case reorder(TabID, from: Int, to: Int)
+    /// A dragged multi-selection dropped inside its strip: `tabs` (dragged tab first) end up
+    /// next to each other, the first at final index `to` of `orderedTabs`, with `membership`
+    /// applied to all of them.
+    case moveTabs([TabID], to: Int, membership: TabGroupMembershipChange)
     /// `after` is nil for the new-tab button and empty-space double-click (append).
     /// `opensWorkspace` is a one-shot Option-double-click override for terminal tabs.
     /// `sameKind`: Option-click on the + (New <Kind> Tab, cmuxterm-hq#1829).

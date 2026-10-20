@@ -40,6 +40,20 @@ extension TabStripModel {
             let item = ordered.remove(at: from)
             ordered.insert(item, at: min(max(to, 0), ordered.count))
             tabs = ordered
+        case .moveTabs(let ids, let to, let membership):
+            let block = ids.compactMap { id in ordered.first { $0.id == id } }
+            guard !block.isEmpty else { return false }
+            ordered.removeAll { ids.contains($0.id) }
+            var moved = block
+            for index in moved.indices {
+                switch membership {
+                case .keep: break
+                case .join(let group): moved[index].groupID = group
+                case .leave: moved[index].groupID = nil
+                }
+            }
+            ordered.insert(contentsOf: moved, at: min(max(to, 0), ordered.count))
+            tabs = ordered
         case .newTab(let after, _, _):
             var item = makeTab()
             if let after, let index = ordered.firstIndex(where: { $0.id == after }) {

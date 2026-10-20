@@ -7,6 +7,7 @@ extension TabStripView {
     // MARK: - Drag reorder
 
     func beginDrag(_ press: TabStripPress) {
+        gatherCompanions(of: press.id)
         guard let index = displayed.firstIndex(where: { $0.id == press.id }), placed[press.id] != nil else { return }
         // The tab is lifted where it shows now (a move may be in flight), then follows the pointer from there.
         let shown = shownX(press.id) ?? placed[press.id]?.x ?? 0
@@ -23,7 +24,8 @@ extension TabStripView {
             originalGroup: displayed[index].groupID,
             targetGroup: displayed[index].groupID,
             grabY: local.y,
-            lastMoveX: contentX
+            lastMoveX: contentX,
+            companions: displayedCompanions
         )
         self.press = nil
         setHovered(nil)
@@ -127,6 +129,7 @@ extension TabStripView {
         self.drag = nil
         escapeMonitor.remove()
         cells[drag.id]?.isLifted = false
+        if !drag.companions.isEmpty { return endSelectionDrag(drag) }
         // The release settles into the slot on a 200 ms ease-out from where it is (Chrome): `relayout`'s tabMove.
         let regrouped = drag.targetGroup != drag.originalGroup
         // The model may have changed during the drag (tabs closed by the
@@ -162,7 +165,9 @@ extension TabStripView {
         guard var drag else { return }
         drag.currentIndex = drag.originalIndex
         drag.targetGroup = drag.originalGroup
+        drag.companions = []
         self.drag = drag
+        releaseCompanions()
         endDrag()
     }
 
@@ -188,11 +193,13 @@ extension TabStripView {
             screenFrame: screenFrame,
             grabOffset: DragGrabPoint.screenOffset(of: grabbed, in: cell.frame, flipped: tabsClip.isFlipped),
             screenPoint: pointer,
-            snapshot: snapshot(of: [cell.layer], frame: cell.frame)
+            snapshot: snapshot(of: [cell.layer], frame: cell.frame),
+            companions: drag.companions
         )
         self.drag = nil
         escapeMonitor.remove()
         cell.isLifted = false
+        gatheredIDs = []
         detachedID = drag.id
         sync(fromModel: false)
         model.send(.dragBegan(start))

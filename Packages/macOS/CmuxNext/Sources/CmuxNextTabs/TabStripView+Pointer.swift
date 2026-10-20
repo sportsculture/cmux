@@ -137,8 +137,14 @@ extension TabStripView {
                 beginInlineRename(id)
                 return
             }
-            // Select on mouse down.
-            if model.selectedID != id { model.send(.select(id)) }
+            // A plain press selects on mouse-down. A Cmd- or Shift-click, and a press on a tab of
+            // a multi-selection, act on mouse-up so a drag can take the selection (the Finder rule).
+            let modifiers = model.allowsMultiSelection ? Self.clickModifiers(event.modifierFlags) : []
+            if !modifiers.isEmpty || model.actionTabs(for: id).count > 1 {
+                press = TabStripPress(id: id, start: point, deferredClick: modifiers)
+                return
+            }
+            model.apply(model.clickOutcome(on: id, modifiers: []))
             press = TabStripPress(id: id, start: point)
             return
         }
@@ -190,6 +196,9 @@ extension TabStripView {
         }
         if endNewTabPress(at: point, modifiers: event.modifierFlags) { return }
         if drag != nil { endDrag() }
+        if let press, let modifiers = press.deferredClick, tabID(at: point) == press.id {
+            model.apply(model.clickOutcome(on: press.id, modifiers: modifiers))
+        }
         press = nil
         if groups.drag != nil {
             endGroupDrag()
@@ -239,7 +248,9 @@ extension TabStripView {
             return nil
         }
         if let id = tabID(at: point) {
-            return contextMenuProvider?(.tab(id, selection: [id]))
+            // A right-click on an unselected tab acts on that tab alone (Chrome), so it ends the selection.
+            if model.actionTabs(for: id).count == 1 { model.clearMultiSelection() }
+            return contextMenuProvider?(.tab(id, selection: model.actionTabs(for: id)))
         }
         return contextMenuProvider?(.emptyStrip)
     }
@@ -297,5 +308,15 @@ extension TabStripView {
     /// In closing mode, the tab whose close button is arriving under `point`.
     func arrivingCloseTab(at point: CGPoint) -> TabID? {
         closingModeWidth == nil ? nil : closingHit.tab(at: convert(point, to: tabsClip), in: self)
+    }
+}
+
+extension TabStripView {
+    /// The selection modifiers of a tab click: Cmd toggles, Shift selects a range.
+    static func clickModifiers(_ flags: NSEvent.ModifierFlags) -> TabClickModifiers {
+        var modifiers: TabClickModifiers = []
+        if flags.contains(.command) { modifiers.insert(.toggle) }
+        if flags.contains(.shift) { modifiers.insert(.range) }
+        return modifiers
     }
 }

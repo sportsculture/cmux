@@ -22,13 +22,14 @@ extension TabStripView {
     /// No gesture, drop, close or override in flight: `displayed` is the model's order.
     private var isAtRest: Bool {
         drag == nil && groups.drag == nil && pendingDrop == nil && dying.isEmpty && orderOverride == nil
-            && groups.membershipOverride.isEmpty && detachedID == nil && groups.detachedGroupID == nil
+            && groups.membershipOverride.isEmpty && detachedID == nil && groups.detachedGroupID == nil && gatheredIDs.isEmpty
     }
 
     private func syncSelection(_ input: ModelSnapshot) {
         let selected = input.selectedID
         if let lastSelectedID { cells[lastSelectedID]?.isSelected = false }
         if let selected { cells[selected]?.isSelected = true }
+        applyMultiSelection(input.selectedIDs, shown: selected)
         lastSyncedInput = input
         // Same geometry: only what the selected tab draws over or hides changes.
         TabSeparatorVisibility.apply(to: self)
@@ -60,7 +61,7 @@ extension TabStripView {
         }
 
         var ordered = modelOrdered.filter { tab in
-            tab.id != detachedID && (tab.groupID == nil || tab.groupID != groups.detachedGroupID)
+            tab.id != detachedID && !gatheredIDs.contains(tab.id) && (tab.groupID == nil || tab.groupID != groups.detachedGroupID)
         }
         if !groups.membershipOverride.isEmpty {
             for index in ordered.indices {
@@ -147,6 +148,7 @@ extension TabStripView {
             cell?.isSelected = item.id == model.selectedID
             cell?.style = model.style
         }
+        applyMultiSelection(model.selectedIDs, shown: model.selectedID)
         if newTabButton.isHidden == model.showsNewTabButton {
             newTabButton.isHidden = !model.showsNewTabButton
             needsLayout = true
@@ -229,5 +231,13 @@ extension TabStripView {
         dying.remove(id)
         goesAt[id] = nil
         occlusionEnds[id] = nil
+    }
+}
+
+extension TabStripView {
+    /// Marks the tabs selected besides the shown one (`TabCell.isMultiSelected`).
+    func applyMultiSelection(_ selected: [TabID], shown: TabID?) {
+        let others = Set(selected).subtracting(shown.map { [$0] } ?? [])
+        for (id, cell) in cells { cell.isMultiSelected = others.contains(id) }
     }
 }

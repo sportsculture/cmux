@@ -25,6 +25,8 @@ extension PaneController {
             CloseUndoToasts.close(in: self, Array(ids[(index + 1)...]))
         case .reorder(let id, _, let to):
             StripOrder.reorder(id, to: to, in: self)
+        case .moveTabs(let ids, let to, let membership):
+            moveTabs(ids, to: to, membership: membership)
         case .newTab(_, let opensWorkspace, let sameKind):
             StripNewTab.request(pane: paneKey, opensWorkspace: opensWorkspace, sameKind: sameKind) {
                 _ = services.registry.perform($0, invocation: $1)
@@ -279,8 +281,9 @@ extension PaneController {
     func contextMenu(for target: TabContextTarget) -> NSMenu? {
         let registry = services.registry
         switch target {
-        case .tab(let id, _):
-            select(id)
+        case .tab(let id, let selection):
+            // A right-click inside a multi-selection keeps it and the shown tab (Chrome); the menu acts on all of it.
+            if selection.count <= 1 { select(id) }
             return Self.tabMenu(id.rawValue, tab: tab(id), workspaceKind: workspace?.workspace.kind,
                                 sameKind: NewTabKind.of(id.rawValue, tab: tab(id), services: services), registry: registry).themeRows(in: view.themeScope.fullStrength)
         case .group(let group), .savedGroup(let group):

@@ -62,9 +62,13 @@ extension TabDragSession {
         case .strip(let stripID, let index, let groupID):
             guard let pane = paneController(stripID: stripID) else { return gone(settle) }
             let paneIndex = StripOrder.paneIndex(forDisplayIndex: index, moving: StripTabID(tab.id), in: pane)
+            let companions = tabCompanions
+            tabCompanions = []
             TabMoves.move(tab, to: pane.pane, index: paneIndex, services: services, transaction: transaction) { [weak pane] ok in
                 if ok {
                     pane?.syncGroupMembership(of: tab, to: groupID)
+                    // A multi-selection follows its dragged tab, in its order (Chrome).
+                    pane?.moveFollowers(companions, after: tab.id, group: groupID)
                     StripOrder.settle([pane])
                 } else {
                     pane?.resyncStrip()
